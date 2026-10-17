@@ -1,35 +1,42 @@
-"""OSINT-заготовки: IP, домены, DNS, username-поиск, заголовки сайтов.
-
-Всё через публичные бесплатные сервисы (без ключей):
-- ip-api.com       — информация об IP
-- rdap.org         — WHOIS-данные домена
-- socket (stdlib)  — DNS и реверс
-"""
-from __future__ import annotations
-
+"""OSINT functions: IP, domains, DNS, email MX, username search, dorks."""
 import concurrent.futures
 import json
 import secrets
 import socket
 import urllib.error
+import urllib.parse
 import urllib.request
+import webbrowser
 
 import ui
+from i18n import t
+
 from . import database
 
 TIMEOUT = 15
-USER_AGENT = "VOID-Tools/0.1 (by anubiz1337)"
+USER_AGENT = "VOID-Tools/0.4 (by anubiz1337)"
+
+DORK_PATTERNS = [
+    "site:{}",
+    "site:{} inurl:admin",
+    "site:{} inurl:login",
+    "site:{} filetype:pdf",
+    'site:{} intitle:"index of"',
+]
+
+ENGINES = {
+    "g": "https://www.google.com/search?q=",
+    "b": "https://www.bing.com/search?q=",
+    "d": "https://duckduckgo.com/?q=",
+}
 
 
-# ---------- служебное ----------
-def _request(url: str, method: str = "GET", payload=None):
-    """HTTP-запрос -> (status, data). data — dict/list или текст ошибки."""
+def _request(url, method="GET", payload=None):
     data = None
     headers = {"User-Agent": USER_AGENT, "Accept": "*/*"}
     if payload is not None:
         data = json.dumps(payload).encode("utf-8")
         headers["Content-Type"] = "application/json"
-
     request = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
@@ -44,19 +51,19 @@ def _request(url: str, method: str = "GET", payload=None):
         except Exception:
             return error.code, None
     except urllib.error.URLError as error:
-        return None, f"нет соединения ({error.reason})"
+        return None, f"no connection ({error.reason})"
 
 
-def _ask(prompt: str) -> str:
-    return input(ui.light(f"   {prompt}")).strip()
+def _ask(prompt):
+    return input(ui.light("   " + prompt)).strip()
 
 
-def _pairs(pairs) -> None:
-    for key, value in pairs:
-        print(ui.gray(f"   {key:<14}") + ui.light(str(value)))
+def _pairs(pairs):
+    for label, value in pairs:
+        print(ui.gray(f"   {label:<14} ") + ui.light(str(value)))
 
 
-def _clean_domain(raw: str) -> str:
+def _clean_domain(raw):
     raw = raw.strip().lower()
     for prefix in ("https://", "http://"):
         if raw.startswith(prefix):
@@ -64,47 +71,42 @@ def _clean_domain(raw: str) -> str:
     return raw.split("/")[0]
 
 
-# ---------- пункты меню ----------
 def ip_lookup():
-    """[01] Информация об IP-адресе (Enter = свой IP)."""
-    ip = _ask("IP (Enter = твой): ")
+    ip = _ask(t("prompt_ip"))
     fields = "status,message,country,regionName,city,lat,lon,timezone,isp,org,as,query"
-    url = f"http://ip-api.com/json/{ip}?fields={fields}"
-    status, data = _request(url)
+    status, data = _request(f"http://ip-api.com/json/{ip}?fields={fields}")
     if status != 200 or not isinstance(data, dict) or data.get("status") != "success":
         reason = data.get("message") if isinstance(data, dict) else status
-        print(ui.red(f"   Не удалось: {reason}"))
+        print(ui.red("   " + t("ip_failed").format(reason)))
         return
     print()
     _pairs([
-        ("IP", data.get("query")),
-        ("Страна", data.get("country")),
-        ("Регион", data.get("regionName")),
-        ("Город", data.get("city")),
-        ("Координаты", f"{data.get('lat')}, {data.get('lon')}"),
-        ("Таймзона", data.get("timezone")),
-        ("Провайдер", data.get("isp")),
-        ("Организация", data.get("org")),
-        ("AS", data.get("as")),
+        (t("label_ip"), data.get("query")),
+        (t("label_country"), data.get("country")),
+        (t("label_region"), data.get("regionName")),
+        (t("label_city"), data.get("city")),
+        (t("label_coords"), f"{data.get('lat')}, {data.get('lon')}"),
+        (t("label_timezone"), data.get("timezone")),
+        (t("label_isp"), data.get("isp")),
+        (t("label_org"), data.get("org")),
+        (t("label_as"), data.get("as")),
     ])
-    # TODO: добавь открытие карты по координатам или сохранение в файл
 
 
 def domain_info():
-    """[02] WHOIS-инфо о домене (RDAP)."""
-    domain = _clean_domain(_ask("Домен (example.com): "))
+    domain = _clean_domain(_ask(t("prompt_domain")))
     if not domain:
-        print(ui.gray("   Отменено."))
+        print(ui.gray("   " + t("cancelled")))
         return
     status, data = _request(f"https://rdap.org/domain/{domain}")
     if status != 200 or not isinstance(data, dict):
-        print(ui.red("   Не удалось получить данные домена."))
+        print(ui.red("   " + t("domain_failed")))
         return
 
     events = {event.get("eventAction"): event.get("eventDate") for event in data.get("events", [])}
-    nameservers = ", ".join(ns.get("ldhName", "") for ns in data.get("nameservers", [])) or "—"
+    nameservers = ", ".join(ns.get("ldhName", "") for ns in data.get("nameservers", [])) or "-"
 
-    registrar = "—"
+    registrar = "-"
     for entity in data.get("entities", []):
         if "registrar" in (entity.get("roles") or []):
             for prop in (entity.get("vcardArray") or [None, []])[1]:
@@ -115,43 +117,71 @@ def domain_info():
 
     print()
     _pairs([
-        ("Домен", data.get("ldhName") or domain),
-        ("Регистратор", registrar),
-        ("Создан", (events.get("registration") or "—")[:10]),
-        ("Истекает", (events.get("expiration") or "—")[:10]),
-        ("Обновлён", (events.get("last changed") or "—")[:10]),
-        ("Статус", ", ".join((data.get("status") or [])[:3]) or "—"),
-        ("NS", nameservers[:70]),
+        (t("label_domain"), data.get("ldhName") or domain),
+        (t("label_registrar"), registrar),
+        (t("label_created"), (events.get("registration") or "-")[:10]),
+        (t("label_expires"), (events.get("expiration") or "-")[:10]),
+        (t("label_updated"), (events.get("last changed") or "-")[:10]),
+        (t("label_status"), ", ".join((data.get("status") or [])[:3]) or "-"),
+        (t("label_ns"), nameservers[:70]),
     ])
 
 
 def dns_lookup():
-    """[03] DNS: домен -> IP, плюс реверс (PTR)."""
-    host = _ask("Хост (example.com): ")
+    host = _ask(t("prompt_host"))
     if not host:
-        print(ui.gray("   Отменено."))
+        print(ui.gray("   " + t("cancelled")))
         return
     try:
         infos = socket.getaddrinfo(host, None)
     except socket.gaierror as error:
-        print(ui.red(f"   Не удалось разрешить: {error}"))
+        print(ui.red("   " + t("dns_failed").format(error)))
         return
     v4 = sorted({item[4][0] for item in infos if item[0] == socket.AF_INET})
     v6 = sorted({item[4][0] for item in infos if item[0] == socket.AF_INET6})
-    print(ui.gray("   IPv4: ") + ui.light(", ".join(v4) or "—"))
-    print(ui.gray("   IPv6: ") + ui.light(", ".join(v6) or "—"))
+    print(ui.gray("   " + t("dns_ipv4")) + ui.light(", ".join(v4) or "-"))
+    print(ui.gray("   " + t("dns_ipv6")) + ui.light(", ".join(v6) or "-"))
 
-    ip = _ask("Реверс-DNS для IP (Enter = пропустить): ")
+    ip = _ask(t("prompt_reverse"))
     if ip:
         try:
             name, _aliases, _addrs = socket.gethostbyaddr(ip)
             print(ui.gray("   PTR:  ") + ui.light(name))
         except (socket.herror, socket.gaierror):
-            print(ui.red("   PTR не найден."))
+            print(ui.red("   " + t("dns_ptr_missing")))
 
 
-def _check_url(url: str, timeout: float = TIMEOUT):
-    """HTTP-статус страницы (200/404/…), None при ошибке сети."""
+def _mx_records(domain):
+    """MX records via Cloudflare DNS-over-HTTPS (JSON)."""
+    url = f"https://cloudflare-dns.com/dns-query?name={domain}&type=MX"
+    request = urllib.request.Request(
+        url, headers={"User-Agent": USER_AGENT, "Accept": "application/dns-json"}
+    )
+    with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+        data = json.loads(response.read().decode("utf-8", "replace"))
+    return [answer.get("data", "") for answer in data.get("Answer", []) if answer.get("type") == 15]
+
+
+def email_mx():
+    raw = _ask(t("prompt_email"))
+    if not raw:
+        print(ui.gray("   " + t("cancelled")))
+        return
+    domain = raw.split("@")[-1].strip().lower()
+    try:
+        records = _mx_records(domain)
+    except Exception:
+        print(ui.red("   " + t("mx_failed")))
+        return
+    if not records:
+        print(ui.gray("   " + t("mx_none")))
+        return
+    print(ui.gray("   " + t("mx_records")))
+    for record in records:
+        print(ui.light(f"   · {record}"))
+
+
+def _check_url(url, timeout=TIMEOUT):
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -163,13 +193,12 @@ def _check_url(url: str, timeout: float = TIMEOUT):
 
 
 def username_tracker():
-    """[04] Поиск username по базе сайтов Sherlock (+ Roblox API)."""
-    username = _ask("Username: ")
+    username = _ask(t("prompt_username"))
     if not username:
-        print(ui.gray("   Отменено."))
+        print(ui.gray("   " + t("cancelled")))
         return
 
-    # сайты берём из локальной базы Sherlock (~400 сайтов)
+    # site list comes from the local Sherlock database
     pool = []
     try:
         sites = database.sherlock_sites()
@@ -182,10 +211,9 @@ def username_tracker():
             if "{}" not in pattern:
                 continue
             pool.append((name, pattern.replace("{}", username), info.get("errorMsg")))
-    except Exception as error:  # noqa: BLE001
-        print(ui.red(f"   База Sherlock недоступна: {error}"))
+    except Exception as error:
+        print(ui.red("   " + t("tracker_db_failed").format(error)))
 
-    # базовые сайты проверяем всегда + случайная выборка из базы
     base = [
         ("GitHub", f"https://github.com/{username}", 404),
         ("Reddit", f"https://www.reddit.com/user/{username}", 404),
@@ -196,7 +224,7 @@ def username_tracker():
     while remaining and len(sample) < 40:
         sample.append(remaining.pop(secrets.randbelow(len(remaining))))
     checks = base + sample
-    print(ui.gray(f"   Проверяю {len(checks)} сайтов…"))
+    print(ui.gray("   " + t("tracker_checking").format(len(checks))))
 
     found = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
@@ -213,7 +241,7 @@ def username_tracker():
             if code == 200 and code not in errors:
                 found.append((name, url))
 
-    # Roblox — через API, точный результат
+    # Roblox via the public API (exact result)
     status, data = _request(
         "https://users.roblox.com/v1/usernames/users",
         method="POST",
@@ -226,28 +254,47 @@ def username_tracker():
 
     print()
     for name, url in sorted(found):
-        print(ui.light("   НАЙДЕН  ") + ui.gray(f"{name:<14} {url}"))
+        print(ui.light(f"   {t('tracker_found'):<7} ") + ui.gray(f"{name:<14} {url}"))
     if roblox_line:
-        print(ui.light("   НАЙДЕН  ") + ui.gray(roblox_line))
+        print(ui.light(f"   {t('tracker_found'):<7} ") + ui.gray(roblox_line))
     total_found = len(found) + (1 if roblox_line else 0)
-    print(ui.gray(f"   Итог: найден на {total_found} из {len(checks) + 1} сайтов"))
+    print(ui.gray("   " + t("tracker_summary").format(total_found, len(checks) + 1)))
 
 
 def url_headers():
-    """[05] Заголовки ответа сайта."""
-    url = _ask("URL: ")
+    url = _ask(t("prompt_url"))
     if not url:
-        print(ui.gray("   Отменено."))
+        print(ui.gray("   " + t("cancelled")))
         return
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
-            print(ui.gray(f"   Статус: {response.status}"))
+            print(ui.gray("   " + t("headers_status").format(response.status)))
             for header, value in list(response.headers.items())[:12]:
                 print(ui.gray(f"   {header:<22}") + ui.light(value[:80]))
     except urllib.error.HTTPError as error:
-        print(ui.red(f"   HTTP {error.code}"))
+        print(ui.red("   " + t("headers_http").format(error.code)))
     except urllib.error.URLError as error:
-        print(ui.red(f"   Недоступно: {error.reason}"))
+        print(ui.red("   " + t("headers_unreachable").format(error.reason)))
+
+
+def dork_builder():
+    target = _ask(t("prompt_target"))
+    if not target:
+        print(ui.gray("   " + t("cancelled")))
+        return
+    engine = _ask(t("prompt_engine")).lower() or "g"
+    base = ENGINES.get(engine, ENGINES["g"])
+    print()
+    print(ui.gray("   " + t("dorks_list")))
+    for number, pattern in enumerate(DORK_PATTERNS, 1):
+        print(ui.gray(f"   {number:02d} ") + ui.light(pattern.format(target)))
+    pick = _ask(t("prompt_dork_pick"))
+    if not pick.isdigit() or not 1 <= int(pick) <= len(DORK_PATTERNS):
+        print(ui.gray("   " + t("dorks_bad_number")))
+        return
+    query = DORK_PATTERNS[int(pick) - 1].format(target)
+    webbrowser.open(base + urllib.parse.quote(query))
+    print(ui.gray("   " + t("dorks_opened")))

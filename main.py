@@ -1,21 +1,15 @@
-"""VOID — консольное меню в стиле RedTiger (белая тема).
-
-Разделы: Info / Osint / Roblox / Utilities.
-Радуга — только на github-ссылках.
-
-Запуск:  python main.py
-"""
-from __future__ import annotations
-
+"""VOID - terminal multi-tool menu (entry point)."""
 import math
 import sys
 import time
 
+import i18n
 import ui
 from functions import osint, roblox, utilities
+from i18n import t
 
 try:
-    import msvcrt  # только Windows: неблокирующий ввод
+    import msvcrt
 except ImportError:
     msvcrt = None
 
@@ -24,132 +18,139 @@ FPS = 15
 GITHUB_USER = "anubiz1337"
 REPO_URL = f"github.com/{GITHUB_USER}/void"
 
-DRIPS = ui.make_drip_columns()  # позиции «капель» под заголовком (разные каждый запуск)
+DRIPS = ui.make_drip_columns()
 
 
-# ---------- функции раздела Info ----------
 def info_about():
-    print("   VOID — заготовка консольного меню (типа RedTiger).")
-    print("   Белое меню, радужный github, Roblox + OSINT + локальные базы данных.")
-    print("   Свои функции добавляй в functions/ и подключай в SECTIONS (main.py).")
+    print("   " + t("info_about_1"))
+    print("   " + t("info_about_2"))
+    print("   " + t("info_about_3"))
 
 
 def info_author():
-    print("   Автор:  by anubiz1337")
-    print(f"   GitHub: github.com/{GITHUB_USER}")
+    print("   " + t("info_author_1"))
+    print("   " + t("info_author_2"))
 
 
 def info_version():
-    print("   VOID v0.3")
-    print(f"   Python {sys.version.split()[0]}")
+    print("   " + t("info_version_1"))
+    print("   " + t("info_version_2").format(sys.version.split()[0]))
 
 
 def info_links():
-    print(f"   Профиль: github.com/{GITHUB_USER}")
-    print(f"   Репо:    {REPO_URL}")
+    print("   " + t("info_links_1"))
+    print("   " + t("info_links_2"))
 
 
-# ---------- описание меню ----------
+def info_language():
+    i18n.toggle()
+    print("   " + t("language_set"))
+
+
 SECTIONS = [
     {
         "key": "i",
-        "title": "Info",
+        "title": "sec_info",
         "items": [
-            ("О проекте", info_about),
-            ("Автор", info_author),
-            ("Версия", info_version),
-            ("Ссылки", info_links),
+            ("item_about", info_about),
+            ("item_author", info_author),
+            ("item_version", info_version),
+            ("item_links", info_links),
+            ("item_language", info_language),
         ],
     },
     {
         "key": "o",
-        "title": "Osint",
+        "title": "sec_osint",
         "items": [
-            ("IP Lookup", osint.ip_lookup),
-            ("Domain Info", osint.domain_info),
-            ("DNS Lookup", osint.dns_lookup),
-            ("Username Tracker", osint.username_tracker),
-            ("URL Headers", osint.url_headers),
+            ("item_ip_lookup", osint.ip_lookup),
+            ("item_domain", osint.domain_info),
+            ("item_dns", osint.dns_lookup),
+            ("item_email_mx", osint.email_mx),
+            ("item_username", osint.username_tracker),
+            ("item_url_headers", osint.url_headers),
+            ("item_dorks", osint.dork_builder),
         ],
     },
     {
         "key": "r",
-        "title": "Roblox",
+        "title": "sec_roblox",
         "items": [
-            ("User Lookup", roblox.user_lookup),
-            ("User by ID", roblox.user_by_id),
-            ("Avatar URL", roblox.avatar_url),
-            ("Friends List", roblox.friends_list),
-            ("Groups List", roblox.groups_list),
-            ("Game Info", roblox.game_info),
-            ("Game Servers", roblox.game_servers),
-            ("Join Game", roblox.join_game),
-            ("API Status", roblox.api_status),
+            ("item_r_lookup", roblox.user_lookup),
+            ("item_r_byid", roblox.user_by_id),
+            ("item_r_avatar", roblox.avatar_url),
+            ("item_r_friends", roblox.friends_list),
+            ("item_r_groups", roblox.groups_list),
+            ("item_r_game", roblox.game_info),
+            ("item_r_servers", roblox.game_servers),
+            ("item_r_join", roblox.join_game),
+            ("item_r_status", roblox.api_status),
         ],
     },
     {
         "key": "u",
-        "title": "Utilities",
+        "title": "sec_utilities",
         "items": [
-            ("System Info", utilities.system_info),
-            ("Ping Roblox", utilities.ping_roblox),
-            ("Open Roblox Site", utilities.open_roblox_site),
-            ("Password Generator", utilities.password_generator),
-            ("Hash Text", utilities.hash_text),
-            ("Base64 Enc/Dec", utilities.base64_tool),
-            ("IP Generator", utilities.ip_generator),
-            ("Update Databases", utilities.update_databases),
-            ("TODO Stub", utilities.todo_stub),
+            ("item_u_sysinfo", utilities.system_info),
+            ("item_u_ping", utilities.ping_host),
+            ("item_u_open", utilities.open_roblox_site),
+            ("item_u_pw", utilities.password_generator),
+            ("item_u_hash", utilities.hash_text),
+            ("item_u_b64", utilities.base64_tool),
+            ("item_u_ipgen", utilities.ip_generator),
+            ("item_u_db", utilities.update_databases),
+            ("item_u_todo", utilities.todo_stub),
         ],
     },
 ]
 
 
-# ---------- сборка кадра ----------
-def _item_line(number: int, label: str, width: int = 30) -> str:
+def item_label(key):
+    if key == "item_language":
+        return f"{t(key)} [{i18n.LANG.upper()}]"
+    return t(key)
+
+
+def _item_line(number, key, width=30):
+    label = item_label(key)
     plain = f"[{number:02d}] {label}"
     colored = ui.gray(f"[{number:02d}]") + " " + ui.light(label)
     return colored + " " * max(2, width - len(plain))
 
 
-def build_screen(t: float, section_idx: int, buffer: str, message: str):
-    phase = (t * 100.0) % 360
-    glow = 0.86 + 0.14 * math.sin(t * 2.0)  # лёгкое «дыхание» белого заголовка
+def build_screen(ts, section_idx, buffer, message):
+    phase = (ts * 100.0) % 360
+    glow = 0.86 + 0.14 * math.sin(ts * 2.0)
     lines = [""]
 
-    # заголовок (белый) + капли (приглушённо-белые)
     for art in ui.TITLE:
         lines.append("   " + ui.white(art, glow))
-    for row in ui.drip_rows(DRIPS, t):
+    for row in ui.drip_rows(DRIPS, ts):
         lines.append("   " + ui.white(row, 0.45))
 
-    # github под заголовком — радужный
     lines.append("")
     lines.append("   " + ui.rainbow(f"github.com/{GITHUB_USER}", phase))
     lines.append("")
 
-    # панель разделов
     parts = []
     visible = 0
     for index, section in enumerate(SECTIONS):
-        label = f"[{section['key'].upper()}] {section['title']}"
+        label = f"[{section['key'].upper()}] {t(section['title'])}"
         block = f" {label} "
         parts.append(ui.badge(block) if index == section_idx else " " + ui.light(label) + " ")
         visible += len(block)
         if index != len(SECTIONS) - 1:
             parts.append(" ")
             visible += 1
-    hint = "[N] Next"
+    hint = f"[N] {t('next')}"
     pad = max(2, 73 - visible - len(hint))
     lines.append("   " + "".join(parts) + " " * pad + ui.gray(hint))
 
-    # заголовок раздела
-    title = SECTIONS[section_idx]["title"]
+    title = t(SECTIONS[section_idx]["title"])
     lines.append("")
     lines.append("   " + ui.white(f"────────┤ {title} ├────────", 0.9))
     lines.append("")
 
-    # пункты в две колонки
     items = SECTIONS[section_idx]["items"]
     half = (len(items) + 1) // 2
     for i in range(half):
@@ -159,51 +160,50 @@ def build_screen(t: float, section_idx: int, buffer: str, message: str):
             row += _item_line(other + 1, items[other][0])
         lines.append(row)
 
-    # командная строка
-    cursor = "▓" if int(t * 2) % 2 == 0 else " "
+    cursor = "▓" if int(ts * 2) % 2 == 0 else " "
     lines.append("")
     lines.append("   " + ui.gray("─" * 60))
-    lines.append("   " + ui.white("Command:") + " " + ui.light(buffer) + ui.white(cursor))
+    lines.append("   " + ui.white(t("command")) + " " + ui.light(buffer) + ui.white(cursor))
     lines.append("   " + (ui.gray("[!] ") + ui.red(message) if message else ""))
-
-    # низ: подпись белая, ссылка на репо — радужная
     lines.append("")
     lines.append("   " + ui.white("by anubiz1337") + ui.gray("  ·  ")
                  + ui.rainbow(REPO_URL, phase + 140, hue_step=14))
     return lines
 
 
-# ---------- запуск пунктов меню ----------
-def run_item(label: str, func) -> None:
+def run_item(key, func):
     sys.stdout.write(ui.SHOW_CURSOR + ui.RESET + ui.CLEAR)
-    print(ui.white(f"── {label} " + "─" * 40, 0.9))
+    print(ui.white(f"-- {t(key)} " + "-" * 40, 0.9))
     print()
     try:
         func()
     except KeyboardInterrupt:
         print()
-        print(ui.gray("   Прервано."))
-    except Exception as error:  # noqa: BLE001
-        print(ui.red(f"   [Ошибка] {error}"))
+        print(ui.gray("   " + t("interrupted")))
+    except Exception as error:
+        print(ui.red(f"   [Error] {error}"))
     print()
     try:
-        input(ui.gray("   Enter — назад в меню... "))
+        input(ui.gray("   " + t("back")) + " ")
     except (EOFError, KeyboardInterrupt):
         pass
     sys.stdout.write(ui.HIDE_CURSOR + ui.CLEAR)
 
 
-# ---------- обработка команд ----------
-def run_command(state: dict) -> None:
+def run_command(state):
     cmd = state["buffer"].strip().lower()
     state["buffer"] = ""
     if not cmd:
         return
-    if cmd in ("q", "quit", "exit", "0", "выход"):
+    if cmd in ("q", "quit", "exit", "0"):
         state["running"] = False
         return
     if cmd in ("n", "next"):
         state["section"] = (state["section"] + 1) % len(SECTIONS)
+        return
+    if cmd in ("l", "lang", "language"):
+        i18n.toggle()
+        state["message"] = t("language_set")
         return
     for index, section in enumerate(SECTIONS):
         if cmd == section["key"]:
@@ -213,13 +213,11 @@ def run_command(state: dict) -> None:
     if cmd.isdigit():
         number = int(cmd)
         if 1 <= number <= len(items):
-            label, func = items[number - 1]
-            run_item(label, func)
+            run_item(items[number - 1][0], items[number - 1][1])
             return
-    state["message"] = f"Неизвестная команда: {cmd}"
+    state["message"] = t("unknown_command").format(cmd)
 
 
-# ---------- ввод ----------
 def poll_keys():
     keys = []
     if msvcrt is None:
@@ -229,17 +227,17 @@ def poll_keys():
     return keys
 
 
-def handle_keys(keys, state: dict) -> None:
+def handle_keys(keys, state):
     i = 0
     while i < len(keys):
         ch = keys[i]
         i += 1
-        if ch in ("\x00", "\xe0"):  # стрелки/функциональные клавиши: два символа
+        if ch in ("\x00", "\xe0"):  # arrows and other special keys come in pairs
             code = keys[i] if i < len(keys) else ""
             i += 1
-            if code == "M":  # вправо
+            if code == "M":
                 state["section"] = (state["section"] + 1) % len(SECTIONS)
-            elif code == "K":  # влево
+            elif code == "K":
                 state["section"] = (state["section"] - 1) % len(SECTIONS)
             continue
         if ch in ("\r", "\n"):
@@ -254,29 +252,28 @@ def handle_keys(keys, state: dict) -> None:
             state["buffer"] += ch
 
 
-# ---------- режимы запуска ----------
-def main() -> None:
-    state = {"running": True, "section": 2, "buffer": "", "message": ""}  # старт с Roblox
+def main():
+    state = {"running": True, "section": 2, "buffer": "", "message": ""}
     start = time.time()
     sys.stdout.write(ui.CLEAR + ui.HIDE_CURSOR)
     try:
         while state["running"]:
-            t = time.time() - start
+            ts = time.time() - start
             keys = poll_keys()
             if keys:
                 state["message"] = ""
                 handle_keys(keys, state)
-            ui.paint(build_screen(t, state["section"], state["buffer"], state["message"]))
+            ui.paint(build_screen(ts, state["section"], state["buffer"], state["message"]))
             time.sleep(1 / FPS)
     except KeyboardInterrupt:
         pass
     finally:
         sys.stdout.write(ui.SHOW_CURSOR + ui.RESET + ui.CLEAR)
-        print(ui.white("VOID") + ui.gray(" — до связи!  ") + ui.gray("by anubiz1337"))
+        print(ui.white("VOID") + ui.gray(f" - {t('farewell')}  ") + ui.gray("by anubiz1337"))
 
 
-def run_static() -> None:
-    """Запасной режим без анимации (не Windows)."""
+def run_static():
+    """Fallback mode without animation (non-Windows)."""
     state = {"running": True, "section": 2, "buffer": "", "message": ""}
     while state["running"]:
         ui.paint(build_screen(0.0, state["section"], state["buffer"], state["message"]))

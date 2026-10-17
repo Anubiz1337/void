@@ -1,9 +1,3 @@
-# VOID
-
-Консольное меню в стиле RedTiger: белый ASCII-заголовок, анимированные
-«капли» под ним, радужные github-ссылки, каркас функций под Roblox и OSINT,
-реальные базы данных из интернета.
-
 ```
 ██╗   ██╗ ██████╗ ██╗██████╗
 ██║   ██║██╔═══██╗██║██╔══██╗
@@ -13,64 +7,186 @@
   ╚═══╝   ╚═════╝ ╚═╝╚═════╝
 ```
 
-## ⚡ Что нового в v0.3
+# VOID-Tools (v0.4)
 
-- Модуль `random` полностью убран — вместо него криптостойкий `secrets`
-- Подключены **реальные базы данных** (качаются один раз в `data/`, дальше офлайн):
-  - **Sherlock DB** (~480 сайтов) — Username Tracker ищет ник на ~40 сайтах из базы + GitHub / Reddit / Twitch / Roblox
-  - **ipdeny.com** — IP Generator выдаёт IP из настоящих диапазонов стран (например, Украина: ~2600 диапазонов, 9 млн адресов)
-- Новый пункт меню: **Utilities → Update Databases** — принудительно обновить базы
+VOID is a terminal multi-tool dedicated to OSINT and Roblox. White ASCII menu,
+rainbow github links, local databases and an English / Russian interface.
+No external dependencies - Python standard library only.
 
-## Запуск
+## ⚠️ Disclaimer:
 
-```bash
+This tool is intended exclusively for educational and lawful use. Any malicious
+use is strictly prohibited. You are responsible for how you use it and for
+following the terms of service of the sites it queries.
+
+## 📝 Description:
+
+- 🖥️ Compatible with Windows and Linux (Linux runs in a static, non-animated mode).
+- 🌐 Interface language: English / Russian, switchable inside the tool (default: English).
+- 🤍 Minimal white theme, the only colored elements are the github links.
+- 🗄️ Local databases: 480+ sites (Sherlock) and real country IP ranges (ipdeny).
+- 📦 No external dependencies - Python standard library only.
+- 🧩 Easy to extend: write a function, hook it into `SECTIONS`.
+
+## 📸 Preview:
+
+```
+                github.com/anubiz1337
+
+ [I] Info   [O] Osint   [R] Roblox   [U] Utilities          [N] Next
+
+                    --------| Roblox |--------
+
+  [01] User Lookup        [06] Game Info
+  [02] User by ID         [07] Game Servers
+  [03] Avatar URL         [08] Join Game
+  [04] Friends List       [09] API Status
+  [05] Groups List
+
+  Command:
+  by anubiz1337  ·  github.com/anubiz1337/void
+```
+
+## ⚙️ Installation:
+
+1. Install the latest version of Python:
+
+- Windows:
+
+```
+Download Here (The "PATH" option must be enabled during installation)
+```
+
+- Linux:
+
+```
+sudo apt install python3 -y
+```
+
+2. Install the latest version of Git:
+
+- Windows:
+
+```
+Download Here (The "PATH" option must be enabled during installation)
+```
+
+- Linux:
+
+```
+sudo apt install git -y
+```
+
+3. Clone the repository:
+
+```
+git clone https://github.com/anubiz1337/void.git
+```
+
+4. Enter the project folder:
+
+```
+cd void
+```
+
+5. Launch the tool:
+
+- Windows:
+
+```
 python main.py
 ```
 
-или двойным кликом по `run.bat`.
+- Linux:
 
-## Разделы и функции
+```
+python3 main.py
+```
 
-| Раздел | Пункты |
-| --- | --- |
-| **Info** `[I]` | О проекте, Автор, Версия, Ссылки |
-| **Osint** `[O]` | IP Lookup, Domain Info (RDAP), DNS Lookup, Username Tracker (по базе Sherlock), URL Headers |
-| **Roblox** `[R]` | User Lookup, User by ID, Avatar URL, Friends List, Groups List, Game Info, Game Servers, Join Game, API Status |
-| **Utilities** `[U]` | System Info, Ping Roblox, Open Roblox Site, Password Generator, Hash Text, Base64 Enc/Dec, IP Generator (по базе ipdeny), Update Databases, TODO Stub |
+On Windows you can also just double-click `run.bat`.
 
-## Базы данных (data/)
+## 🔄 Update:
 
-| База | Источник | Для чего |
+1. Enter the project folder:
+
+```
+cd void
+```
+
+2. Update launch:
+
+```
+git pull
+```
+
+## 🌐 Interface language:
+
+- Default language is **English**.
+- Switch to Russian inside the tool: `Info -> Language`, or type `lang` in the command line.
+
+## 🚀 Features:
+
+```
+Menu:
+  lang / l   : switch interface language (EN / RU)
+  n / next   : next section
+  q / quit   : exit
+  sections   : i = Info / o = Osint / r = Roblox / u = Utilities
+
+Osint:
+  [01] IP Lookup        : IP data via the ip-api.com API.
+  [02] Domain Info      : WHOIS / RDAP domain data via rdap.org.
+  [03] DNS Lookup       : A / AAAA records + reverse DNS (PTR).
+  [04] Email MX         : MX records of an email / domain via Cloudflare DoH.
+  [05] Username Tracker : track a username across 40+ sites (Sherlock database).
+  [06] URL Headers      : response headers of a website.
+  [07] Dork Builder     : search query builder (Google / Bing / DuckDuckGo).
+
+Roblox:
+  [01] User Lookup      : username -> public profile data.
+  [02] User by ID       : profile by user id.
+  [03] Avatar URL       : avatar headshot URL.
+  [04] Friends List     : public friends list.
+  [05] Groups List      : groups and roles.
+  [06] Game Info        : game data by place id.
+  [07] Game Servers     : public servers of a game.
+  [08] Join Game        : launch Roblox into a place.
+  [09] API Status       : check Roblox API availability.
+
+Utilities:
+  [01] System Info        : OS / Python information.
+  [02] Ping Host          : latency check for a host (default roblox.com).
+  [03] Open Roblox Site   : open roblox.com in the browser.
+  [04] Password Generator : crypto-strong password (secrets module).
+  [05] Hash Text          : md5 / sha1 / sha256 / sha512.
+  [06] Base64 Enc/Dec     : base64 encode / decode.
+  [07] IP Generator       : IPs from real country ranges (ipdeny database).
+  [08] Update Databases   : refresh the local databases.
+```
+
+## 🗄️ Databases:
+
+| Database | Source | Used by |
 | --- | --- | --- |
-| `sherlock_data.json` | github.com/sherlock-project/sherlock | база сайтов для поиска username |
-| `ip_ranges/*.zone` | ipdeny.com | реальные IP-диапазоны стран |
+| `sherlock_data.json` | github.com/sherlock-project/sherlock | Username Tracker |
+| `ip_ranges/*.zone` | ipdeny.com | IP Generator |
 
-Качаются автоматически при первом использовании, лежат локально, в git не попадают.
+They are downloaded automatically on first use into `data/` (not tracked by git).
 
-## Управление
+## 🧩 Structure:
 
-| Клавиши | Действие |
-| --- | --- |
-| `01`–`09` | запустить пункт меню |
-| `I` / `O` / `R` / `U` | перейти к разделу |
-| `N` или стрелки `←` `→` | следующий раздел |
-| `Q` | выход |
+- `main.py` - menu, animation, key handling
+- `ui.py` - ANSI colors, ASCII art, frame rendering
+- `i18n.py` - English / Russian interface strings
+- `functions/roblox.py` - Roblox API functions
+- `functions/osint.py` - OSINT functions
+- `functions/utilities.py` - utilities
+- `functions/database.py` - local database manager
 
-## Структура
+## 👨‍💻 Credits:
 
-- `main.py` — меню, анимация, обработка клавиш
-- `ui.py` — ANSI-цвета, ASCII-арт, отрисовка кадра
-- `functions/roblox.py` — функции Roblox (публичные API, без авторизации)
-- `functions/osint.py` — OSINT (IP, домены, DNS, username, заголовки)
-- `functions/utilities.py` — утилиты (система, генераторы, хеши, базы)
-- `functions/database.py` — менеджер локальных баз данных
-- `run.bat` — запуск на Windows двойным кликом
-
-## Как добавить свою функцию
-
-1. Напиши функцию в `functions/roblox.py`, `functions/osint.py` или `functions/utilities.py`.
-2. Добавь её в список `SECTIONS` в `main.py`: `("Название", твоя_функция)`.
-3. Перезапусти меню — пункт появится в разделе.
-
----
-by anubiz1337 · github.com/anubiz1337/void
+- Developed by: **anubiz1337**
+- GitHub: [github.com/anubiz1337](https://github.com/anubiz1337)
+- Interface inspired by **RedTiger-Tools** ([github.com/loxy0devlp/RedTiger-Tools](https://github.com/loxy0devlp/RedTiger-Tools))
+- License: **MIT License**
+- Version: **v0.4**

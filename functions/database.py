@@ -1,11 +1,8 @@
-"""Локальные базы данных VOID (скачиваются один раз, лежат в data/).
+"""Local databases: downloaded once into data/, then reused offline.
 
-Источники (открытые данные из интернета):
-- sherlock-project/sherlock — база из ~400 сайтов для поиска username по нику
-- ipdeny.com — реальные IP-диапазоны стран (aggregated-зоны)
-
-После первой загрузки работает офлайн. Пункт «Update Databases» в меню
-обновляет базы принудительно.
+Sources:
+- sherlock-project/sherlock - site list for username search
+- ipdeny.com - country IP ranges (aggregated zones)
 """
 from __future__ import annotations
 
@@ -26,7 +23,7 @@ SHERLOCK_URLS = [
 IPDENY_URL = "https://www.ipdeny.com/ipblocks/data/aggregated/{cc}-aggregated.zone"
 
 TIMEOUT = 60
-USER_AGENT = "VOID-Tools/0.3 (by anubiz1337)"
+USER_AGENT = "VOID-Tools/0.4 (by anubiz1337)"
 
 
 def _download(url: str) -> str:
@@ -42,7 +39,7 @@ def _download_first(urls) -> str:
             return _download(url)
         except Exception as error:  # noqa: BLE001
             last_error = error
-    raise OSError(f"не удалось скачать: {last_error}")
+    raise OSError(f"could not download: {last_error}")
 
 
 def _read_local(path: str):
@@ -58,9 +55,9 @@ def _save(path: str, text: str) -> None:
         file.write(text)
 
 
-# ---------- Sherlock: база сайтов ----------
+# ---------- sherlock: site list ----------
 def sherlock_sites(force: bool = False) -> dict:
-    """База сайтов Sherlock: имя -> правила проверки (url, errorType, errorMsg…)."""
+    """Sherlock site database: name -> check rules (url, errorType, errorMsg...)."""
     path = os.path.join(DATA_DIR, "sherlock_data.json")
     text = None if force else _read_local(path)
     if text is None:
@@ -69,9 +66,9 @@ def sherlock_sites(force: bool = False) -> dict:
     return json.loads(text)
 
 
-# ---------- ipdeny: IP-диапазоны стран ----------
+# ---------- ipdeny: country IP ranges ----------
 def ip_ranges(country: str, force: bool = False):
-    """Список CIDR-диапазонов страны (код из двух букв: ua, us, de…)."""
+    """List of CIDR ranges for a country (two letter code: ua, us, de...)."""
     country = country.strip().lower()
     if len(country) != 2 or not country.isalpha():
         raise ValueError("нужен код страны из двух букв (ua / us / de)")
@@ -84,7 +81,7 @@ def ip_ranges(country: str, force: bool = False):
 
 
 def ip_available():
-    """Какие страны уже скачаны локально."""
+    """Countries already downloaded locally."""
     if not os.path.isdir(IP_DIR):
         return []
     return sorted(
