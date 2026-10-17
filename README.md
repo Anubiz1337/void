@@ -7,7 +7,7 @@
   ╚═══╝   ╚═════╝ ╚═╝╚═════╝
 ```
 
-# VOID-Tools (v0.7)
+# VOID-Tools (v0.8)
 
 VOID is a terminal multi-tool dedicated to OSINT and Roblox. White ASCII menu,
 rainbow github links, local databases and an English / Russian interface.
@@ -33,7 +33,7 @@ following the terms of service of the sites it queries.
 ```
                 github.com/anubiz1337
 
- [I] Info   [O] Osint   [R] Roblox   [U] Utilities          [N] Next
+ [I] Info   [O] Osint   [W] Web   [R] Roblox   [U] Utilities     [N] Next
 
                     --------| Roblox |--------
 
@@ -131,7 +131,7 @@ Menu:
   lang / l   : switch interface language (EN / RU)
   n / next   : next section
   q / quit   : exit
-  sections   : i = Info / o = Osint / r = Roblox / u = Utilities
+  sections   : i = Info / o = Osint / w = Web / r = Roblox / u = Utilities
 
 Osint:
   [01] IP Lookup        : IP data + proxy / hosting / mobile flags (ip-api.com).
@@ -141,8 +141,14 @@ Osint:
   [05] Email MX         : MX records of an email / domain via Cloudflare DoH.
   [06] Username Tracker : track a username across 40+ sites (Sherlock database).
   [07] GitHub Lookup    : public GitHub profile data by username.
-  [08] URL Headers      : response headers of a website.
-  [09] Dork Builder     : search query builder (Google / Bing / DuckDuckGo).
+
+Web:
+  [01] URL Headers      : response headers of a website.
+  [02] Dork Builder     : search query builder (Google / Bing / DuckDuckGo).
+  [03] Expand URL       : print the redirect chain and the final address.
+  [04] Port Scan        : quick check of the most common ports.
+  [05] Ping Host        : latency check for a host (default roblox.com).
+  [06] Open Roblox Site : open roblox.com in the browser.
 
 Roblox:
   [01] User Lookup      : username -> public profile data.
@@ -160,13 +166,11 @@ Roblox:
 
 Utilities:
   [01] System Info        : OS / Python information.
-  [02] Ping Host          : latency check for a host (default roblox.com).
-  [03] Open Roblox Site   : open roblox.com in the browser.
-  [04] Password Generator : crypto-strong password (secrets module).
-  [05] Hash Text          : md5 / sha1 / sha256 / sha512.
-  [06] Base64 Enc/Dec     : base64 encode / decode.
-  [07] IP Generator       : IPs from real country ranges (ipdeny database).
-  [08] Update Databases   : refresh the local databases.
+  [02] Password Generator : crypto-strong password (secrets module).
+  [03] Hash Text          : md5 / sha1 / sha256 / sha512.
+  [04] Base64 Enc/Dec     : base64 encode / decode.
+  [05] IP Generator       : IPs from real country ranges (ipdeny database).
+  [06] Update Databases   : refresh the local databases.
 ```
 
 ## 🗄️ Databases:
@@ -185,6 +189,7 @@ They are downloaded automatically on first use into `data/` (not tracked by git)
 - `i18n.py` - English / Russian interface strings
 - `functions/roblox.py` - Roblox API functions
 - `functions/osint.py` - OSINT functions
+- `functions/web.py` - web functions
 - `functions/utilities.py` - utilities
 - `functions/database.py` - local database manager
 
@@ -193,4 +198,4 @@ They are downloaded automatically on first use into `data/` (not tracked by git)
 - Developed by: **anubiz1337**
 - GitHub: [github.com/anubiz1337](https://github.com/anubiz1337)
 - License: **MIT License**
-- Version: **v0.7**
+- Version: **v0.8**

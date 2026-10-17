@@ -5,7 +5,7 @@ import time
 
 import i18n
 import ui
-from functions import osint, roblox, utilities
+from functions import osint, roblox, utilities, web
 from i18n import t
 
 try:
@@ -17,7 +17,7 @@ FPS = 20
 
 GITHUB_USER = "anubiz1337"
 REPO_URL = f"github.com/{GITHUB_USER}/void"
-VERSION = "v0.7"
+VERSION = "v0.8"
 
 DRIPS = ui.make_drip_columns()
 
@@ -71,8 +71,18 @@ SECTIONS = [
             ("item_email_mx", osint.email_mx),
             ("item_username", osint.username_tracker),
             ("item_github", osint.github_lookup),
-            ("item_url_headers", osint.url_headers),
-            ("item_dorks", osint.dork_builder),
+        ],
+    },
+    {
+        "key": "w",
+        "title": "sec_web",
+        "items": [
+            ("item_url_headers", web.url_headers),
+            ("item_dorks", web.dork_builder),
+            ("item_expand", web.expand_url),
+            ("item_portscan", web.port_scan),
+            ("item_u_ping", web.ping_host),
+            ("item_u_open", web.open_roblox_site),
         ],
     },
     {
@@ -96,8 +106,6 @@ SECTIONS = [
         "title": "sec_utilities",
         "items": [
             ("item_u_sysinfo", utilities.system_info),
-            ("item_u_ping", utilities.ping_host),
-            ("item_u_open", utilities.open_roblox_site),
             ("item_u_pw", utilities.password_generator),
             ("item_u_hash", utilities.hash_text),
             ("item_u_b64", utilities.base64_tool),
@@ -115,27 +123,19 @@ def item_label(key):
     return t(key)
 
 
-def _item_line(number, key, ts, elapsed, index, width=30):
-    """Menu entry: gentle white-gray gleam + staggered fade-in after a switch."""
+def _item_line(number, key, elapsed, index, width=30):
+    """Menu entry: white text with a quick fade-in after a section switch."""
     label = item_label(key)
     plain = f"[{number:02d}] {label}"
     progress = max(0.0, min(1.0, (elapsed - index * 0.045) / 0.28))
-    alpha = 0.15 + 0.85 * (1.0 - (1.0 - progress) ** 2)
-    k = 2 * math.pi / 64.0
-    chars = []
-    for x, ch in enumerate(label):
-        if ch == " ":
-            chars.append(ch)
-            continue
-        wave = 0.5 + 0.5 * math.sin(x * k - ts * 1.3)
-        chars.append(ui.fg(ui.SOFT, ch, (0.78 + 0.22 * wave) * alpha))
-    colored = ui.gray(f"[{number:02d}]", alpha) + " " + "".join(chars)
+    alpha = 0.2 + 0.8 * (1.0 - (1.0 - progress) ** 2)
+    colored = ui.white(f"[{number:02d}]", alpha * 0.8) + " " + ui.white(label, alpha)
     return colored + " " * max(2, width - len(plain))
 
 
 def build_screen(ts, section_idx, buffer, message, section_ts=0.0):
     phase = (ts * 100.0) % 360
-    elapsed = max(0.0, ts - section_ts)
+    elapsed = max(0.0, time.time() - section_ts)
     lines = [""]
 
     for art in ui.TITLE:
@@ -178,10 +178,10 @@ def build_screen(ts, section_idx, buffer, message, section_ts=0.0):
     items = SECTIONS[section_idx]["items"]
     half = (len(items) + 1) // 2
     for i in range(half):
-        row = "   " + _item_line(i + 1, items[i][0], ts, elapsed, i)
+        row = "   " + _item_line(i + 1, items[i][0], elapsed, i)
         other = i + half
         if other < len(items):
-            row += _item_line(other + 1, items[other][0], ts, elapsed, other)
+            row += _item_line(other + 1, items[other][0], elapsed, other)
         lines.append(row)
 
     cursor_dim = 0.3 + 0.7 * (0.5 + 0.5 * math.sin(ts * 4.2))
@@ -283,7 +283,7 @@ def handle_keys(keys, state):
 def main():
     state = {
         "running": True,
-        "section": 2,
+        "section": 3,
         "buffer": "",
         "message": "",
         "section_ts": time.time(),
@@ -312,7 +312,7 @@ def run_static():
     """Fallback mode without animation (non-Windows)."""
     state = {
         "running": True,
-        "section": 2,
+        "section": 3,
         "buffer": "",
         "message": "",
         "section_ts": 0.0,

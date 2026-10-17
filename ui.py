@@ -15,7 +15,7 @@ SHOW_CURSOR = "\033[?25h"
 # palette (menu is white, color only on github links)
 WHITE = (255, 255, 255)
 SOFT = (235, 235, 235)
-GRAY = (168, 168, 168)
+GRAY = (185, 185, 185)
 DARK = (16, 16, 16)
 RED = (229, 57, 53)  # errors only
 

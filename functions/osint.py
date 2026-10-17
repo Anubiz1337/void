@@ -1,12 +1,10 @@
-"""OSINT functions: IP, domains, DNS, email MX, username search, dorks."""
+"""OSINT functions: IP, domains, DNS, subdomains, email MX, username search."""
 import concurrent.futures
 import json
 import secrets
 import socket
 import urllib.error
-import urllib.parse
 import urllib.request
-import webbrowser
 
 import ui
 from i18n import t
@@ -14,21 +12,7 @@ from i18n import t
 from . import database
 
 TIMEOUT = 15
-USER_AGENT = "VOID-Tools/0.7 (by anubiz1337)"
-
-DORK_PATTERNS = [
-    "site:{}",
-    "site:{} inurl:admin",
-    "site:{} inurl:login",
-    "site:{} filetype:pdf",
-    'site:{} intitle:"index of"',
-]
-
-ENGINES = {
-    "g": "https://www.google.com/search?q=",
-    "b": "https://www.bing.com/search?q=",
-    "d": "https://duckduckgo.com/?q=",
-}
+USER_AGENT = "VOID-Tools/0.8 (by anubiz1337)"
 
 
 def _request(url, method="GET", payload=None, timeout=TIMEOUT):
@@ -346,41 +330,3 @@ def github_lookup():
     ]
     _pairs([(label, value) for label, value in rows if value not in (None, "")])
 
-
-def url_headers():
-    url = _ask(t("prompt_url"))
-    if not url:
-        print(ui.gray("   " + t("cancelled")))
-        return
-    if not url.startswith(("http://", "https://")):
-        url = "https://" + url
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
-            print(ui.gray("   " + t("headers_status").format(response.status)))
-            for header, value in list(response.headers.items())[:12]:
-                print(ui.gray(f"   {header:<22}") + ui.light(value[:80]))
-    except urllib.error.HTTPError as error:
-        print(ui.red("   " + t("headers_http").format(error.code)))
-    except urllib.error.URLError as error:
-        print(ui.red("   " + t("headers_unreachable").format(error.reason)))
-
-
-def dork_builder():
-    target = _ask(t("prompt_target"))
-    if not target:
-        print(ui.gray("   " + t("cancelled")))
-        return
-    engine = _ask(t("prompt_engine")).lower() or "g"
-    base = ENGINES.get(engine, ENGINES["g"])
-    print()
-    print(ui.gray("   " + t("dorks_list")))
-    for number, pattern in enumerate(DORK_PATTERNS, 1):
-        print(ui.gray(f"   {number:02d} ") + ui.light(pattern.format(target)))
-    pick = _ask(t("prompt_dork_pick"))
-    if not pick.isdigit() or not 1 <= int(pick) <= len(DORK_PATTERNS):
-        print(ui.gray("   " + t("dorks_bad_number")))
-        return
-    query = DORK_PATTERNS[int(pick) - 1].format(target)
-    webbrowser.open(base + urllib.parse.quote(query))
-    print(ui.gray("   " + t("dorks_opened")))

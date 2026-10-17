@@ -1,4 +1,4 @@
-"""Utility functions: system, network, generators, hashes, databases."""
+"""Utility functions: system info, generators, hashes, databases."""
 import base64
 import hashlib
 import ipaddress
@@ -6,41 +6,16 @@ import platform
 import secrets
 import string
 import sys
-import time
-import urllib.request
-import webbrowser
 
 import ui
 from i18n import t
 
 from . import database
 
-USER_AGENT = "VOID-Tools/0.7 (by anubiz1337)"
-
 
 def system_info():
     print(ui.gray("   " + t("sysinfo_os")) + ui.light(platform.platform()))
     print(ui.gray("   " + t("sysinfo_python")) + ui.light(sys.version.split()[0]))
-
-
-def ping_host():
-    host = input(ui.light("   " + t("prompt_ping_host"))).strip() or "roblox.com"
-    if not host.startswith(("http://", "https://")):
-        host = "https://" + host
-    start = time.perf_counter()
-    try:
-        request = urllib.request.Request(host, headers={"User-Agent": USER_AGENT})
-        with urllib.request.urlopen(request, timeout=15) as response:
-            response.read(1)
-        ms = (time.perf_counter() - start) * 1000
-        print(ui.light("   " + t("ping_pong").format(ms)))
-    except Exception as error:
-        print(ui.red("   " + t("ping_fail").format(error)))
-
-
-def open_roblox_site():
-    webbrowser.open("https://www.roblox.com")
-    print(ui.gray("   " + t("open_opened")))
 
 
 def password_generator():
