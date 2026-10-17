@@ -14,7 +14,7 @@ from i18n import t
 from . import database
 
 TIMEOUT = 15
-USER_AGENT = "VOID-Tools/0.5 (by anubiz1337)"
+USER_AGENT = "VOID-Tools/0.6 (by anubiz1337)"
 
 DORK_PATTERNS = [
     "site:{}",

@@ -13,10 +13,11 @@ try:
 except ImportError:
     msvcrt = None
 
-FPS = 15
+FPS = 20
 
 GITHUB_USER = "anubiz1337"
 REPO_URL = f"github.com/{GITHUB_USER}/void"
+VERSION = "v0.6"
 
 DRIPS = ui.make_drip_columns()
 
@@ -112,25 +113,33 @@ def item_label(key):
     return t(key)
 
 
-def _item_line(number, key, width=30):
+def _item_line(number, key, elapsed, index, width=30):
+    """Menu entry with a staggered fade-in after a section switch."""
     label = item_label(key)
     plain = f"[{number:02d}] {label}"
-    colored = ui.gray(f"[{number:02d}]") + " " + ui.light(label)
+    progress = max(0.0, min(1.0, (elapsed - index * 0.045) / 0.28))
+    alpha = 0.15 + 0.85 * (1.0 - (1.0 - progress) ** 2)
+    colored = ui.gray(f"[{number:02d}]", alpha) + " " + ui.light(label, alpha)
     return colored + " " * max(2, width - len(plain))
 
 
-def build_screen(ts, section_idx, buffer, message):
+def build_screen(ts, section_idx, buffer, message, section_ts=0.0):
     phase = (ts * 100.0) % 360
-    glow = 0.86 + 0.14 * math.sin(ts * 2.0)
+    elapsed = max(0.0, ts - section_ts)
+    bloom = 1.0 - math.exp(-6.0 * elapsed)
     lines = [""]
 
     for art in ui.TITLE:
-        lines.append("   " + ui.white(art, glow))
+        lines.append("   " + ui.shimmer(art, ts))
     for row in ui.drip_rows(DRIPS, ts):
-        lines.append("   " + ui.white(row, 0.45))
+        lines.append("   " + "".join(
+            ui.white(ch, dim) if ch != " " else " " for ch, dim in row
+        ))
 
     lines.append("")
-    lines.append("   " + ui.rainbow(f"github.com/{GITHUB_USER}", phase))
+    link = f"github.com/{GITHUB_USER}"
+    pad = max(2, 73 - len(link) - len(VERSION))
+    lines.append("   " + ui.rainbow(link, phase) + " " * pad + ui.gray(VERSION))
     lines.append("")
 
     parts = []
@@ -138,7 +147,10 @@ def build_screen(ts, section_idx, buffer, message):
     for index, section in enumerate(SECTIONS):
         label = f"[{section['key'].upper()}] {t(section['title'])}"
         block = f" {label} "
-        parts.append(ui.badge(block) if index == section_idx else " " + ui.light(label) + " ")
+        if index == section_idx:
+            parts.append(ui.badge(block, 0.25 + 0.75 * bloom))
+        else:
+            parts.append(" " + ui.light(label) + " ")
         visible += len(block)
         if index != len(SECTIONS) - 1:
             parts.append(" ")
@@ -149,22 +161,24 @@ def build_screen(ts, section_idx, buffer, message):
 
     title = t(SECTIONS[section_idx]["title"])
     lines.append("")
-    lines.append("   " + ui.white(f"────────┤ {title} ├────────", 0.9))
+    lines.append("   " + ui.shimmer(
+        f"────────┤ {title} ├────────", ts, lo=0.7, speed=1.6, wavelength=46.0
+    ))
     lines.append("")
 
     items = SECTIONS[section_idx]["items"]
     half = (len(items) + 1) // 2
     for i in range(half):
-        row = "   " + _item_line(i + 1, items[i][0])
+        row = "   " + _item_line(i + 1, items[i][0], elapsed, i)
         other = i + half
         if other < len(items):
-            row += _item_line(other + 1, items[other][0])
+            row += _item_line(other + 1, items[other][0], elapsed, other)
         lines.append(row)
 
-    cursor = "▓" if int(ts * 2) % 2 == 0 else " "
+    cursor_dim = 0.3 + 0.7 * (0.5 + 0.5 * math.sin(ts * 4.2))
     lines.append("")
     lines.append("   " + ui.gray("─" * 60))
-    lines.append("   " + ui.white(t("command")) + " " + ui.light(buffer) + ui.white(cursor))
+    lines.append("   " + ui.white(t("command")) + " " + ui.light(buffer) + ui.white("▌", cursor_dim))
     lines.append("   " + (ui.gray("[!] ") + ui.red(message) if message else ""))
     lines.append("")
     lines.append("   " + ui.white("by anubiz1337") + ui.gray("  ·  ")
@@ -201,6 +215,7 @@ def run_command(state):
         return
     if cmd in ("n", "next"):
         state["section"] = (state["section"] + 1) % len(SECTIONS)
+        state["section_ts"] = time.time()
         return
     if cmd in ("l", "lang", "language"):
         i18n.toggle()
@@ -209,6 +224,7 @@ def run_command(state):
     for index, section in enumerate(SECTIONS):
         if cmd == section["key"]:
             state["section"] = index
+            state["section_ts"] = time.time()
             return
     items = SECTIONS[state["section"]]["items"]
     if cmd.isdigit():
@@ -238,8 +254,10 @@ def handle_keys(keys, state):
             i += 1
             if code == "M":
                 state["section"] = (state["section"] + 1) % len(SECTIONS)
+                state["section_ts"] = time.time()
             elif code == "K":
                 state["section"] = (state["section"] - 1) % len(SECTIONS)
+                state["section_ts"] = time.time()
             continue
         if ch in ("\r", "\n"):
             run_command(state)
@@ -254,7 +272,13 @@ def handle_keys(keys, state):
 
 
 def main():
-    state = {"running": True, "section": 2, "buffer": "", "message": ""}
+    state = {
+        "running": True,
+        "section": 2,
+        "buffer": "",
+        "message": "",
+        "section_ts": time.time(),
+    }
     start = time.time()
     sys.stdout.write(ui.CLEAR + ui.HIDE_CURSOR)
     try:
@@ -264,7 +288,9 @@ def main():
             if keys:
                 state["message"] = ""
                 handle_keys(keys, state)
-            ui.paint(build_screen(ts, state["section"], state["buffer"], state["message"]))
+            ui.paint(build_screen(
+                ts, state["section"], state["buffer"], state["message"], state["section_ts"]
+            ))
             time.sleep(1 / FPS)
     except KeyboardInterrupt:
         pass
@@ -275,9 +301,15 @@ def main():
 
 def run_static():
     """Fallback mode without animation (non-Windows)."""
-    state = {"running": True, "section": 2, "buffer": "", "message": ""}
+    state = {
+        "running": True,
+        "section": 2,
+        "buffer": "",
+        "message": "",
+        "section_ts": 0.0,
+    }
     while state["running"]:
-        ui.paint(build_screen(0.0, state["section"], state["buffer"], state["message"]))
+        ui.paint(build_screen(10.0, state["section"], state["buffer"], state["message"], 0.0))
         try:
             state["buffer"] = input("   > ")
         except (EOFError, KeyboardInterrupt):

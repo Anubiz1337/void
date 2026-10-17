@@ -15,7 +15,7 @@ from i18n import t
 
 from . import database
 
-USER_AGENT = "VOID-Tools/0.5 (by anubiz1337)"
+USER_AGENT = "VOID-Tools/0.6 (by anubiz1337)"
 
 
 def system_info():

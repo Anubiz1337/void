@@ -8,7 +8,7 @@ import ui
 from i18n import t
 
 TIMEOUT = 15
-USER_AGENT = "VOID-Tools/0.5 (by anubiz1337)"
+USER_AGENT = "VOID-Tools/0.6 (by anubiz1337)"
 
 
 def _request(url, method="GET", payload=None):
@@ -217,15 +217,8 @@ def game_servers():
     place_id = _resolve_place_id()
     if place_id is None:
         return
-    universe_id = place_to_universe(place_id)
-    if universe_id is None:
-        print(ui.red("   " + t("game_unresolved")))
-        return
-    status, data = _request(
-        f"https://games.roblox.com/v1/games/{universe_id}/servers/Public?limit=10"
-    )
-    servers = data.get("data") if isinstance(data, dict) else None
-    if status != 200 or servers is None:
+    servers = _public_servers(place_id, 10)
+    if servers is None:
         print(ui.red("   " + t("servers_failed")))
         return
     print(ui.gray("   " + t("servers_count").format(len(servers))))
@@ -247,8 +240,10 @@ def fetch_presence(user_id):
     return None
 
 
-def _open_place(place_id):
+def _open_place(place_id, instance_id=None):
     link = f"roblox://experiences/start?placeId={place_id}"
+    if instance_id:
+        link += f"&gameInstanceId={instance_id}"
     print(ui.gray("   " + t("join_opening").format(link)))
     if os.name == "nt":
         os.startfile(link)
@@ -256,18 +251,83 @@ def _open_place(place_id):
         print(ui.red("   " + t("join_windows")))
 
 
+def _game_data(place_id):
+    """Game info + universe id for a place id."""
+    universe_id = place_to_universe(place_id)
+    if universe_id is None:
+        return None, None
+    status, data = _request(f"https://games.roblox.com/v1/games?universeIds={universe_id}")
+    game = _first(data) if status == 200 else None
+    return game, universe_id
+
+
+def _public_servers(place_id, limit=10):
+    """Public server list of a place (limit must be 10, 25, 50 or 100)."""
+    if limit not in (10, 25, 50, 100):
+        limit = 10
+    status, data = _request(
+        f"https://games.roblox.com/v1/games/{place_id}/servers/Public?limit={limit}"
+    )
+    if status == 200 and isinstance(data, dict) and data.get("data") is not None:
+        return data["data"]
+    return None
+
+
+def _show_servers(servers):
+    print()
+    print(ui.gray("   " + t("join_servers_header")))
+    for index, server in enumerate(servers, 1):
+        sid = str(server.get("id", ""))
+        line = f"{sid[:10]}  {server.get('playing')}/{server.get('maxPlayers')}  ping {server.get('ping')}ms"
+        print(ui.gray(f"   {index:02d}  ") + ui.light(line))
+
+
+def _join_place_mode(place_id):
+    """Show game info and its public servers, then join the chosen one."""
+    game, universe_id = _game_data(place_id)
+    if universe_id is None or game is None:
+        print(ui.red("   " + t("game_unresolved")))
+        return
+    print()
+    _pairs([
+        (t("label_game_name"), game.get("name")),
+        (t("label_playing"), game.get("playing")),
+        (t("label_visits"), game.get("visits")),
+    ])
+    servers = _public_servers(place_id, 10)
+    if not servers:
+        _open_place(place_id)
+        return
+    _show_servers(servers)
+    pick = _ask(t("prompt_pick_server"))
+    if not pick:
+        print(ui.gray("   " + t("cancelled")))
+        return
+    if pick == "0":
+        _open_place(place_id)
+        return
+    if not pick.isdigit() or not 1 <= int(pick) <= len(servers):
+        print(ui.red("   " + t("join_bad_pick")))
+        return
+    _open_place(place_id, servers[int(pick) - 1].get("id"))
+
+
 def join_player():
-    """Find the game a player is currently in and join it."""
-    raw = _ask(t("prompt_username_or_id"))
+    """Join by username (presence lookup) or by place id (server browser)."""
+    raw = _ask(t("prompt_player_place"))
     if not raw:
         print(ui.gray("   " + t("cancelled")))
         return
-    user_id = int(raw) if raw.isdigit() else username_to_id(raw)
+
+    if raw.isdigit():
+        _join_place_mode(int(raw))
+        return
+
+    user_id = username_to_id(raw)
     if user_id is None:
         print(ui.red("   " + t("user_not_found")))
         return
 
-    place_id = None
     presence = fetch_presence(user_id)
     if presence is None:
         print(ui.gray("   " + t("presence_failed")))
@@ -277,23 +337,22 @@ def join_player():
         print()
         print(ui.gray("   " + t("join_playing").format(location)))
         print(ui.gray("   " + t("join_place").format(place_id)))
-        if _ask(t("join_confirm")).lower() not in ("y", "yes", "1"):
+        if _ask(t("join_confirm")).lower() in ("y", "yes", "1"):
+            _open_place(place_id)
+        else:
             print(ui.gray("   " + t("cancelled")))
-            return
+        return
     else:
         location = presence.get("lastLocation")
         print(ui.gray("   " + t("join_not_in_game")))
         if location:
             print(ui.gray("   " + t("join_last_seen").format(location)))
 
-    if place_id is None:
-        raw_place = _ask(t("join_manual_prompt"))
-        if not raw_place.isdigit():
-            print(ui.gray("   " + t("cancelled")))
-            return
-        place_id = int(raw_place)
-
-    _open_place(place_id)
+    raw_place = _ask(t("join_manual_prompt"))
+    if not raw_place.isdigit():
+        print(ui.gray("   " + t("cancelled")))
+        return
+    _join_place_mode(int(raw_place))
 
 
 def join_game():

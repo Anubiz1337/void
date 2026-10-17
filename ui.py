@@ -29,7 +29,7 @@ TITLE = [
 ]
 TITLE_WIDTH = max(len(line) for line in TITLE)
 
-DRIP_LEVELS = "▓▒░"
+DRIP_CHARS = "▓▒░"
 
 
 def init_console():
@@ -76,10 +76,11 @@ def red(text, dim=1.0):
     return fg(RED, text, dim)
 
 
-def badge(text):
-    """Active tab: black text on a white plate."""
+def badge(text, glow=1.0):
+    """Active tab: dark text on a white plate whose brightness can animate."""
+    level = int(110 + 145 * max(0.0, min(1.0, glow)))
     dr, dg, db = DARK
-    return f"\033[48;2;255;255;255m\033[38;2;{dr};{dg};{db}m\033[1m{text}\033[0m"
+    return f"\033[48;2;{level};{level};{level}m\033[38;2;{dr};{dg};{db}m\033[1m{text}\033[0m"
 
 
 def hsv_to_rgb(h, s, v):
@@ -116,6 +117,19 @@ def rainbow(text, phase, hue_step=7.0, value=1.0, sat=0.95):
     return "".join(out)
 
 
+def shimmer(text, ts, lo=0.6, hi=1.0, speed=2.4, wavelength=24.0):
+    """White text with a soft brightness wave running through it."""
+    out = []
+    k = 2 * math.pi / wavelength
+    for x, ch in enumerate(text):
+        if ch == " ":
+            out.append(ch)
+            continue
+        wave = 0.5 + 0.5 * math.sin(x * k - ts * speed)
+        out.append(fg(WHITE, ch, lo + (hi - lo) * wave))
+    return "".join(out)
+
+
 def make_drip_columns(count=9):
     cols = set()
     while len(cols) < count:
@@ -123,14 +137,25 @@ def make_drip_columns(count=9):
     return sorted(cols)
 
 
-def drip_rows(columns, timer):
-    """Animated drips under the title; length pulses over time."""
-    rows = [[" "] * TITLE_WIDTH for _ in range(len(DRIP_LEVELS))]
-    for c in columns:
-        length = 1 + int((1 + math.sin(timer * 2.4 + c * 1.9)) / 2 * (len(DRIP_LEVELS) - 0.01))
-        for r in range(length):
-            rows[r][c] = DRIP_LEVELS[r]
-    return ["".join(row) for row in rows]
+def drip_rows(columns, ts):
+    """Animated drips: per-character brightness, gently falling."""
+    rows = []
+    for row in range(len(DRIP_CHARS)):
+        line = []
+        for col in range(TITLE_WIDTH):
+            if col not in columns:
+                line.append((" ", 1.0))
+                continue
+            phase = col * 0.8
+            length = 1.4 + 1.4 * math.sin(ts * 2.1 + phase)
+            if row + 0.5 > length:
+                line.append((" ", 1.0))
+                continue
+            wave = 0.5 + 0.5 * math.sin(ts * 3.2 - row * 1.3 + phase)
+            dim = (0.9 - row * 0.22) * (0.7 + 0.3 * wave)
+            line.append((DRIP_CHARS[row], max(0.15, min(1.0, dim))))
+        rows.append(line)
+    return rows
 
 
 def paint(lines):
