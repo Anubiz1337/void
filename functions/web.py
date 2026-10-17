@@ -1,5 +1,6 @@
 """Web functions: headers, dorks, redirects, ports."""
 import concurrent.futures
+import re
 import socket
 import time
 import urllib.error
@@ -11,7 +12,7 @@ import ui
 from i18n import t
 
 TIMEOUT = 15
-USER_AGENT = "VOID-Tools/0.8 (by anubiz1337)"
+USER_AGENT = "VOID-Tools/0.9 (by anubiz1337)"
 
 DORK_PATTERNS = [
     "site:{}",
@@ -55,6 +56,20 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def _ask(prompt):
     return input(ui.light("   " + prompt)).strip()
+
+
+def _fetch(url, limit=None, timeout=TIMEOUT):
+    """GET a page as text (optionally only the first `limit` bytes)."""
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        body = response.read(limit) if limit else response.read()
+        return response.status, body.decode("utf-8", "replace")
+
+
+def _pairs(pairs):
+    for label, value in pairs:
+        if value not in (None, ""):
+            print(ui.gray(f"   {label:<14} ") + ui.light(str(value)))
 
 
 def url_headers():
@@ -185,3 +200,77 @@ def ping_host():
 def open_roblox_site():
     webbrowser.open("https://www.roblox.com")
     print(ui.gray("   " + t("open_opened")))
+
+
+def robots_txt():
+    """Rules from the robots.txt of a site."""
+    url = _ask(t("prompt_url"))
+    if not url:
+        print(ui.gray("   " + t("cancelled")))
+        return
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    parts = urllib.parse.urlsplit(url)
+    robots_url = f"{parts.scheme}://{parts.netloc}/robots.txt"
+    try:
+        _status, body = _fetch(robots_url, limit=200000)
+    except urllib.error.HTTPError:
+        print(ui.gray("   " + t("robots_none")))
+        return
+    except urllib.error.URLError as error:
+        print(ui.red("   " + t("headers_unreachable").format(error.reason)))
+        return
+    rules = [
+        line.strip()
+        for line in body.splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+    if not rules:
+        print(ui.gray("   " + t("robots_none")))
+        return
+    print(ui.gray("   " + t("robots_rules").format(len(rules))))
+    for line in rules[:15]:
+        print(ui.light(f"   · {line[:70]}"))
+    if len(rules) > 15:
+        print(ui.gray("   " + t("robots_more")))
+
+
+def _meta(body, key, attr="name"):
+    """Find a <meta> tag by name / property and return its content."""
+    for tag in re.findall(r"<meta\b[^>]*>", body, re.I):
+        if re.search(rf'{attr}\s*=\s*["\']{re.escape(key)}["\']', tag, re.I):
+            content = re.search(r'content\s*=\s*["\']([^"\']*)["\']', tag, re.I)
+            if content:
+                return content.group(1).strip()
+    return None
+
+
+def site_info():
+    """Title, description and Open Graph meta tags of a page."""
+    url = _ask(t("prompt_url"))
+    if not url:
+        print(ui.gray("   " + t("cancelled")))
+        return
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    try:
+        _status, body = _fetch(url, limit=300000)
+    except urllib.error.HTTPError as error:
+        print(ui.red("   " + t("headers_http").format(error.code)))
+        return
+    except urllib.error.URLError as error:
+        print(ui.red("   " + t("headers_unreachable").format(error.reason)))
+        return
+    title = re.search(r"<title[^>]*>(.*?)</title>", body, re.I | re.S)
+    rows = [
+        (t("label_title"), title.group(1).strip() if title else None),
+        (t("label_desc"), _meta(body, "description")),
+        (t("label_generator"), _meta(body, "generator")),
+        (t("label_og_title"), _meta(body, "og:title", "property")),
+        (t("label_og_image"), _meta(body, "og:image", "property")),
+    ]
+    if not any(value for _label, value in rows):
+        print(ui.gray("   " + t("siteinfo_empty")))
+        return
+    print()
+    _pairs([(label, value[:110] if isinstance(value, str) else value) for label, value in rows])

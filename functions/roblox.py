@@ -1,14 +1,16 @@
 """Roblox functions. Public APIs only, no auth."""
 import json
 import os
+import secrets
 import urllib.error
+import urllib.parse
 import urllib.request
 
 import ui
 from i18n import t
 
 TIMEOUT = 15
-USER_AGENT = "VOID-Tools/0.8 (by anubiz1337)"
+USER_AGENT = "VOID-Tools/0.9 (by anubiz1337)"
 
 
 def _request(url, method="GET", payload=None):
@@ -57,7 +59,7 @@ def _show_user(data):
         (t("label_username"), data.get("name")),
         (t("label_display"), data.get("displayName")),
         (t("label_id"), data.get("id")),
-        (t("label_created"), (data.get("created") or "")[:10]),
+        (t("label_created"), (data.get("created") or "-")[:10]),
         (t("label_banned"), data.get("isBanned")),
     ])
     description = (data.get("description") or "").strip()
@@ -189,6 +191,16 @@ def groups_list():
         print(ui.light(f"   · {group.get('name')} - {role.get('name')}  (id={group.get('id')})"))
 
 
+def _game_icon(universe_id):
+    """Icon image URL of a game."""
+    status, data = _request(
+        "https://thumbnails.roblox.com/v1/games/icons"
+        f"?universeIds={universe_id}&size=512x512&format=Png&isCircular=false"
+    )
+    thumb = _first(data) if status == 200 else None
+    return thumb.get("imageUrl") if thumb else None
+
+
 def game_info():
     place_id = _resolve_place_id()
     if place_id is None:
@@ -211,6 +223,9 @@ def game_info():
         (t("label_favorites"), game.get("favoritedCount")),
         (t("label_max_players"), game.get("maxPlayers")),
     ])
+    icon = _game_icon(universe_id)
+    if icon:
+        print(ui.gray("   " + t("label_icon")) + " " + ui.light(icon))
 
 
 def game_servers():
@@ -360,6 +375,114 @@ def join_game():
     if place_id is None:
         return
     _open_place(place_id)
+
+
+def group_info():
+    """Group data by id or by name search."""
+    raw = _ask(t("prompt_group"))
+    if not raw:
+        print(ui.gray("   " + t("cancelled")))
+        return
+    group_id = None
+    if raw.isdigit():
+        group_id = int(raw)
+    else:
+        status, data = _request(
+            "https://groups.roblox.com/v1/groups/search"
+            f"?keyword={urllib.parse.quote(raw)}&limit=10"
+        )
+        results = data.get("data") if isinstance(data, dict) else None
+        if status != 200 or not results:
+            print(ui.gray("   " + t("no_results")))
+            return
+        print()
+        for index, group in enumerate(results, 1):
+            line = f"{group.get('name')}  ({t('label_members').lower()}: {group.get('memberCount')})"
+            print(ui.gray(f"   {index:02d}  ") + ui.light(line[:60]))
+        pick = _ask(t("prompt_pick_number"))
+        if not pick.isdigit() or not 1 <= int(pick) <= len(results):
+            print(ui.gray("   " + t("cancelled")))
+            return
+        group_id = results[int(pick) - 1].get("id")
+    status, data = _request(f"https://groups.roblox.com/v1/groups/{group_id}")
+    if status != 200 or not isinstance(data, dict):
+        print(ui.red("   " + t("group_failed")))
+        return
+    owner = data.get("owner") or {}
+    print()
+    _pairs([
+        (t("label_game_name"), data.get("name")),
+        (t("label_id"), data.get("id")),
+        (t("label_owner"), f"{owner.get('displayName')} (@{owner.get('username')})"),
+        (t("label_members"), data.get("memberCount")),
+        (t("label_created"), (data.get("created") or "-")[:10]),
+        (t("label_public"), t("yes") if data.get("publicEntryAllowed") else t("no")),
+    ])
+    description = (data.get("description") or "").strip()
+    if description:
+        print(ui.gray("   " + t("label_description")) + " " + ui.light(description[:120]))
+
+
+def user_games():
+    """Public games created by a user."""
+    user_id = _resolve_user_id()
+    if user_id is None:
+        return
+    status, data = _request(
+        f"https://games.roblox.com/v2/users/{user_id}/games?limit=10&sortOrder=Desc"
+    )
+    games = data.get("data") if isinstance(data, dict) else None
+    if status != 200 or games is None:
+        print(ui.red("   " + t("fetch_failed")))
+        return
+    if not games:
+        print(ui.gray("   " + t("no_results")))
+        return
+    print(ui.gray("   " + t("usergames_count").format(len(games))))
+    for game in games[:10]:
+        root = game.get("rootPlace") or {}
+        visits = game.get("placeVisits", 0)
+        print(
+            ui.light(f"   · {game.get('name')[:38]}  ")
+            + ui.gray(f"place {root.get('id')}  {t('label_visits').lower()}: {visits}")
+        )
+
+
+def game_search():
+    """Find games by name, then show info and join the chosen one."""
+    query = _ask(t("prompt_search_game"))
+    if not query:
+        print(ui.gray("   " + t("cancelled")))
+        return
+    status, data = _request(
+        "https://apis.roblox.com/search-api/omni-search"
+        f"?searchQuery={urllib.parse.quote(query)}&sessionId={secrets.token_hex(16)}&pageToken="
+    )
+    games = []
+    if status == 200 and isinstance(data, dict):
+        for group in data.get("searchResults", []):
+            if group.get("contentGroupType") == "Game":
+                games.extend(group.get("contents") or [])
+    if not games:
+        print(ui.gray("   " + t("no_results")))
+        return
+    print()
+    for index, game in enumerate(games[:10], 1):
+        line = (
+            f"{game.get('name')[:36]}  "
+            f"{t('label_playing').lower()}: {game.get('playerCount', 0)}  "
+            f"by {game.get('creatorName') or '-'}"
+        )
+        print(ui.gray(f"   {index:02d}  ") + ui.light(line[:70]))
+    pick = _ask(t("prompt_pick_number"))
+    if not pick.isdigit() or not 1 <= int(pick) <= min(len(games), 10):
+        print(ui.gray("   " + t("cancelled")))
+        return
+    place_id = games[int(pick) - 1].get("rootPlaceId")
+    if not place_id:
+        print(ui.red("   " + t("game_unresolved")))
+        return
+    _join_place_mode(place_id)
 
 
 def api_status():

@@ -17,7 +17,7 @@ FPS = 20
 
 GITHUB_USER = "anubiz1337"
 REPO_URL = f"github.com/{GITHUB_USER}/void"
-VERSION = "v0.8"
+VERSION = "v0.9"
 
 DRIPS = ui.make_drip_columns()
 
@@ -71,6 +71,11 @@ SECTIONS = [
             ("item_email_mx", osint.email_mx),
             ("item_username", osint.username_tracker),
             ("item_github", osint.github_lookup),
+            ("item_ip_ports", osint.ip_ports),
+            ("item_reverse_ip", osint.reverse_ip),
+            ("item_ssl", osint.ssl_info),
+            ("item_wayback", osint.wayback),
+            ("item_email_sec", osint.email_security),
         ],
     },
     {
@@ -83,6 +88,8 @@ SECTIONS = [
             ("item_portscan", web.port_scan),
             ("item_u_ping", web.ping_host),
             ("item_u_open", web.open_roblox_site),
+            ("item_robots", web.robots_txt),
+            ("item_siteinfo", web.site_info),
         ],
     },
     {
@@ -96,6 +103,9 @@ SECTIONS = [
             ("item_r_groups", roblox.groups_list),
             ("item_r_game", roblox.game_info),
             ("item_r_servers", roblox.game_servers),
+            ("item_r_group", roblox.group_info),
+            ("item_r_usergames", roblox.user_games),
+            ("item_r_search", roblox.game_search),
             ("item_r_join_player", roblox.join_player),
             ("item_r_join", roblox.join_game),
             ("item_r_status", roblox.api_status),

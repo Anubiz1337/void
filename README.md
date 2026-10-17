@@ -7,7 +7,7 @@
   ╚═══╝   ╚═════╝ ╚═╝╚═════╝
 ```
 
-# VOID-Tools (v0.8)
+# VOID-Tools (v0.9)
 
 VOID is a terminal multi-tool dedicated to OSINT and Roblox. White ASCII menu,
 rainbow github links, local databases and an English / Russian interface.
@@ -37,11 +37,13 @@ following the terms of service of the sites it queries.
 
                     --------| Roblox |--------
 
-  [01] User Lookup        [06] Game Info
-  [02] User by ID         [07] Game Servers
-  [03] Avatar URL         [08] Join Player
-  [04] Friends List       [09] Join Game
-  [05] Groups List        [10] API Status
+  [01] User Lookup        [08] Group Info
+  [02] User by ID         [09] User Games
+  [03] Avatar URL         [10] Game Search
+  [04] Friends List       [11] Join Player
+  [05] Groups List        [12] Join Game
+  [06] Game Info          [13] API Status
+  [07] Game Servers
 
   Command:
   by anubiz1337  ·  github.com/anubiz1337/void
@@ -141,6 +143,11 @@ Osint:
   [05] Email MX         : MX records of an email / domain via Cloudflare DoH.
   [06] Username Tracker : track a username across 40+ sites (Sherlock database).
   [07] GitHub Lookup    : public GitHub profile data by username.
+  [08] IP Ports         : open ports / hostnames / vulns of an IP (Shodan InternetDB).
+  [09] Reverse IP       : domains hosted on the same IP (HackerTarget).
+  [10] SSL Certificate  : TLS certificate info (issuer, dates, SANs).
+  [11] Wayback Machine  : first and latest snapshots of a site (archive.org).
+  [12] Email Security   : SPF and DMARC records (Cloudflare DoH).
 
 Web:
   [01] URL Headers      : response headers of a website.
@@ -149,6 +156,8 @@ Web:
   [04] Port Scan        : quick check of the most common ports.
   [05] Ping Host        : latency check for a host (default roblox.com).
   [06] Open Roblox Site : open roblox.com in the browser.
+  [07] Robots.txt       : rules from the robots.txt of a site.
+  [08] Site Info        : title / description / Open Graph meta tags.
 
 Roblox:
   [01] User Lookup      : username -> public profile data.
@@ -156,13 +165,16 @@ Roblox:
   [03] Avatar URL       : avatar headshot URL.
   [04] Friends List     : public friends list.
   [05] Groups List      : groups and roles.
-  [06] Game Info        : game data by place id.
+  [06] Game Info        : game data by place id (+ icon url).
   [07] Game Servers     : public servers of a game.
-  [08] Join Player      : enter a username to find the game a player is in and
+  [08] Group Info       : group data by id or name search.
+  [09] User Games       : games a user created (visits + place id).
+  [10] Game Search      : find games by name, show info and join.
+  [11] Join Player      : enter a username to find the game a player is in and
                           join it, or enter a place id to search the game's
                           public servers and join a specific one.
-  [09] Join Game        : launch Roblox into a place.
-  [10] API Status       : check Roblox API availability.
+  [12] Join Game        : launch Roblox into a place.
+  [13] API Status       : check Roblox API availability.
 
 Utilities:
   [01] System Info        : OS / Python information.
@@ -198,4 +210,4 @@ They are downloaded automatically on first use into `data/` (not tracked by git)
 - Developed by: **anubiz1337**
 - GitHub: [github.com/anubiz1337](https://github.com/anubiz1337)
 - License: **MIT License**
-- Version: **v0.8**
+- Version: **v0.9**

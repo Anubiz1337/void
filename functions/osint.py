@@ -3,7 +3,10 @@ import concurrent.futures
 import json
 import secrets
 import socket
+import ssl
+import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 import ui
@@ -12,7 +15,7 @@ from i18n import t
 from . import database
 
 TIMEOUT = 15
-USER_AGENT = "VOID-Tools/0.8 (by anubiz1337)"
+USER_AGENT = "VOID-Tools/0.9 (by anubiz1337)"
 
 
 def _request(url, method="GET", payload=None, timeout=TIMEOUT):
@@ -192,14 +195,19 @@ def subdomains():
         print(ui.gray("   " + t("subs_truncated")))
 
 
-def _mx_records(domain):
-    """MX records via Cloudflare DNS-over-HTTPS (JSON)."""
-    url = f"https://cloudflare-dns.com/dns-query?name={domain}&type=MX"
+def _dns_json(name, record_type):
+    """Cloudflare DNS-over-HTTPS query (JSON)."""
+    url = f"https://cloudflare-dns.com/dns-query?name={urllib.parse.quote(name)}&type={record_type}"
     request = urllib.request.Request(
         url, headers={"User-Agent": USER_AGENT, "Accept": "application/dns-json"}
     )
     with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
-        data = json.loads(response.read().decode("utf-8", "replace"))
+        return json.loads(response.read().decode("utf-8", "replace"))
+
+
+def _mx_records(domain):
+    """MX records via Cloudflare DNS-over-HTTPS (JSON)."""
+    data = _dns_json(domain, "MX")
     return [answer.get("data", "") for answer in data.get("Answer", []) if answer.get("type") == 15]
 
 
@@ -329,4 +337,156 @@ def github_lookup():
         (t("label_created"), (data.get("created_at") or "")[:10]),
     ]
     _pairs([(label, value) for label, value in rows if value not in (None, "")])
+
+
+def ip_ports():
+    """Open ports, hostnames and known issues of an IP (Shodan InternetDB)."""
+    ip = _ask(t("prompt_ip_only"))
+    if not ip:
+        print(ui.gray("   " + t("cancelled")))
+        return
+    status, data = _request(f"https://internetdb.shodan.io/{ip}")
+    if status == 404:
+        print(ui.gray("   " + t("ports_none")))
+        return
+    if status != 200 or not isinstance(data, dict):
+        print(ui.red("   " + t("fetch_failed")))
+        return
+    print()
+    _pairs([
+        (t("label_ip"), data.get("ip")),
+        (t("label_ports"), ", ".join(str(port) for port in data.get("ports") or []) or "-"),
+        (t("label_hostnames"), ", ".join((data.get("hostnames") or [])[:5])[:80] or "-"),
+        (t("label_tags"), ", ".join((data.get("tags") or [])[:5]) or "-"),
+        (t("label_vulns"), ", ".join((data.get("vulns") or [])[:8]) or "-"),
+    ])
+
+
+def reverse_ip():
+    """Domains hosted on the same IP (HackerTarget reverse IP lookup)."""
+    target = _ask(t("prompt_scan_host"))
+    if not target:
+        print(ui.gray("   " + t("cancelled")))
+        return
+    url = f"https://api.hackertarget.com/reverseiplookup/?q={urllib.parse.quote(target)}"
+    status, data = _request(url, timeout=30)
+    if status != 200 or not isinstance(data, str):
+        print(ui.red("   " + t("fetch_failed")))
+        return
+    text = data.strip()
+    low = text.lower()
+    if low.startswith("error") or "quota" in low or "api count" in low:
+        print(ui.red("   " + t("revip_limit")))
+        return
+    domains = [line.strip() for line in text.splitlines() if line.strip()]
+    if not domains:
+        print(ui.gray("   " + t("revip_none")))
+        return
+    print(ui.gray("   " + t("revip_found").format(len(domains))))
+    for name in domains[:20]:
+        print(ui.light(f"   · {name}"))
+    if len(domains) > 20:
+        print(ui.gray("   " + t("revip_truncated")))
+
+
+def ssl_info():
+    """TLS certificate of a host (standard library only)."""
+    host = _clean_domain(_ask(t("prompt_host")))
+    if not host:
+        print(ui.gray("   " + t("cancelled")))
+        return
+    context = ssl.create_default_context()
+    try:
+        with socket.create_connection((host, 443), timeout=TIMEOUT) as raw:
+            with context.wrap_socket(raw, server_hostname=host) as tls:
+                cert = tls.getpeercert()
+    except Exception as error:
+        print(ui.red("   " + t("ssl_failed").format(error)))
+        return
+    subject = dict(pair[0] for pair in cert.get("subject", []))
+    issuer = dict(pair[0] for pair in cert.get("issuer", []))
+    days_left = "-"
+    try:
+        days_left = int((ssl.cert_time_to_seconds(cert.get("notAfter", "")) - time.time()) / 86400)
+    except Exception:
+        pass
+    sans = [value for kind, value in cert.get("subjectAltName", []) if kind == "DNS"]
+    print()
+    _pairs([
+        (t("label_cn"), subject.get("commonName", "-")),
+        (t("label_issuer"), issuer.get("organizationName") or issuer.get("commonName", "-")),
+        (t("label_valid_from"), cert.get("notBefore", "-")),
+        (t("label_valid_to"), cert.get("notAfter", "-")),
+        (t("label_days_left"), days_left),
+        (t("label_sans"), ", ".join(sans[:6])[:80] or "-"),
+    ])
+
+
+def wayback():
+    """First and latest snapshot of a site (Internet Archive)."""
+    domain = _clean_domain(_ask(t("prompt_domain")))
+    if not domain:
+        print(ui.gray("   " + t("cancelled")))
+        return
+
+    def stamp(value):
+        value = str(value or "")
+        return f"{value[0:4]}-{value[4:6]}-{value[6:8]}" if len(value) >= 8 else "-"
+
+    status, data = _request(f"https://archive.org/wayback/available?url={domain}", timeout=30)
+    snapshot = None
+    if status == 200 and isinstance(data, dict):
+        snapshot = (data.get("archived_snapshots") or {}).get("closest")
+    if not snapshot:
+        print(ui.gray("   " + t("wayback_none")))
+        return
+    first = "-"
+    status, data = _request(
+        f"https://web.archive.org/cdx/search/cdx?url={domain}&output=json&limit=1&fl=timestamp",
+        timeout=30,
+    )
+    if status == 200 and isinstance(data, list) and len(data) > 1:
+        first = stamp(data[1][0])
+    print()
+    _pairs([
+        (t("label_domain"), domain),
+        (t("wayback_first"), first),
+        (t("wayback_latest"), stamp(snapshot.get("timestamp"))),
+        (t("label_status"), snapshot.get("status")),
+    ])
+    print(ui.gray("   " + t("wayback_url")) + ui.light(snapshot.get("url", "")))
+
+
+def email_security():
+    """SPF and DMARC records of a domain."""
+    raw = _ask(t("prompt_email"))
+    if not raw:
+        print(ui.gray("   " + t("cancelled")))
+        return
+    domain = raw.split("@")[-1].strip().lower()
+    try:
+        spf_answer = _dns_json(domain, "TXT")
+        dmarc_answer = _dns_json(f"_dmarc.{domain}", "TXT")
+    except Exception:
+        print(ui.red("   " + t("emailsec_failed")))
+        return
+
+    def find_record(answer, prefix):
+        for entry in answer.get("Answer", []):
+            value = str(entry.get("data", "")).strip('"')
+            if value.lower().startswith(prefix):
+                return value
+        return None
+
+    spf = find_record(spf_answer, "v=spf1")
+    dmarc = find_record(dmarc_answer, "v=dmarc1")
+    print()
+    if spf:
+        print(ui.gray(f"   {t('label_spf'):<7} ") + ui.light(spf[:110]))
+    else:
+        print(ui.red("   " + t("emailsec_none_spf")))
+    if dmarc:
+        print(ui.gray(f"   {t('label_dmarc'):<7} ") + ui.light(dmarc[:110]))
+    else:
+        print(ui.red("   " + t("emailsec_none_dmarc")))
 
