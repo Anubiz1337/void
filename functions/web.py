@@ -12,7 +12,7 @@ import ui
 from i18n import t
 
 TIMEOUT = 15
-USER_AGENT = "VOID-Tools/0.9 (by anubiz1337)"
+USER_AGENT = "VOID-Tools/1.0 (by anubiz1337)"
 
 DORK_PATTERNS = [
     "site:{}",
@@ -274,3 +274,38 @@ def site_info():
         return
     print()
     _pairs([(label, value[:110] if isinstance(value, str) else value) for label, value in rows])
+
+
+def security_headers():
+    """Check the main HTTP security headers of a site."""
+    url = _ask(t("prompt_url"))
+    if not url:
+        print(ui.gray("   " + t("cancelled")))
+        return
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    try:
+        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+            headers = {key.lower(): value for key, value in response.headers.items()}
+    except urllib.error.HTTPError as error:
+        headers = {key.lower(): value for key, value in error.headers.items()}
+    except urllib.error.URLError as error:
+        print(ui.red("   " + t("headers_unreachable").format(error.reason)))
+        return
+    checks = [
+        (t("label_hsts"), "strict-transport-security"),
+        (t("label_csp"), "content-security-policy"),
+        (t("label_frame"), "x-frame-options"),
+        (t("label_nosniff"), "x-content-type-options"),
+        (t("label_referrer"), "referrer-policy"),
+    ]
+    present = 0
+    print()
+    for label, header in checks:
+        if header in headers:
+            present += 1
+            print(ui.gray(f"   {label:<24}") + ui.light(t("yes")))
+        else:
+            print(ui.gray(f"   {label:<24}") + ui.red(t("no")))
+    print(ui.gray("   " + t("sechdr_score").format(present, len(checks))))

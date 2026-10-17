@@ -5,7 +5,7 @@ import time
 
 import i18n
 import ui
-from functions import osint, roblox, utilities, web
+from functions import fun, osint, roblox, utilities, web
 from i18n import t
 
 try:
@@ -17,7 +17,7 @@ FPS = 20
 
 GITHUB_USER = "anubiz1337"
 REPO_URL = f"github.com/{GITHUB_USER}/void"
-VERSION = "v0.9"
+VERSION = "v1.0"
 
 DRIPS = ui.make_drip_columns()
 
@@ -76,6 +76,7 @@ SECTIONS = [
             ("item_ssl", osint.ssl_info),
             ("item_wayback", osint.wayback),
             ("item_email_sec", osint.email_security),
+            ("item_ip_whois", osint.ip_whois),
         ],
     },
     {
@@ -90,6 +91,7 @@ SECTIONS = [
             ("item_u_open", web.open_roblox_site),
             ("item_robots", web.robots_txt),
             ("item_siteinfo", web.site_info),
+            ("item_sec_headers", web.security_headers),
         ],
     },
     {
@@ -103,12 +105,26 @@ SECTIONS = [
             ("item_r_groups", roblox.groups_list),
             ("item_r_game", roblox.game_info),
             ("item_r_servers", roblox.game_servers),
+            ("item_r_passes", roblox.game_passes),
             ("item_r_group", roblox.group_info),
+            ("item_r_members", roblox.group_members),
             ("item_r_usergames", roblox.user_games),
             ("item_r_search", roblox.game_search),
             ("item_r_join_player", roblox.join_player),
             ("item_r_join", roblox.join_game),
             ("item_r_status", roblox.api_status),
+        ],
+    },
+    {
+        "key": "f",
+        "title": "sec_fun",
+        "items": [
+            ("item_fun_vapor", fun.vaporwave),
+            ("item_fun_leet", fun.leet_speak),
+            ("item_fun_flip", fun.upside_down),
+            ("item_fun_hacker", fun.hacker_id),
+            ("item_fun_coin", fun.coin_flip),
+            ("item_fun_game", fun.random_game),
         ],
     },
     {
@@ -171,9 +187,6 @@ def build_screen(ts, section_idx, buffer, message, section_ts=0.0):
         else:
             parts.append(" " + ui.light(label, 0.6) + " ")
         visible += len(block)
-        if index != len(SECTIONS) - 1:
-            parts.append(" ")
-            visible += 1
     hint = f"[N] {t('next')}"
     pad = max(2, 73 - visible - len(hint))
     lines.append("   " + "".join(parts) + " " * pad + ui.gray(hint))

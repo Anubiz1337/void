@@ -15,7 +15,7 @@ from i18n import t
 from . import database
 
 TIMEOUT = 15
-USER_AGENT = "VOID-Tools/0.9 (by anubiz1337)"
+USER_AGENT = "VOID-Tools/1.0 (by anubiz1337)"
 
 
 def _request(url, method="GET", payload=None, timeout=TIMEOUT):
@@ -489,4 +489,33 @@ def email_security():
         print(ui.gray(f"   {t('label_dmarc'):<7} ") + ui.light(dmarc[:110]))
     else:
         print(ui.red("   " + t("emailsec_none_dmarc")))
+
+
+def ip_whois():
+    """Network registration data for an IP (RDAP)."""
+    ip = _ask(t("prompt_ip_only"))
+    if not ip:
+        print(ui.gray("   " + t("cancelled")))
+        return
+    status, data = _request(f"https://rdap.org/ip/{ip}", timeout=30)
+    if status != 200 or not isinstance(data, dict):
+        print(ui.red("   " + t("ipwhois_failed")))
+        return
+    org = None
+    for entity in data.get("entities", []):
+        roles = entity.get("roles") or []
+        if org is None and ("registrant" in roles or "administrative" in roles):
+            for prop in (entity.get("vcardArray") or [None, []])[1]:
+                if prop and prop[0] == "fn":
+                    org = prop[3]
+                    break
+    print()
+    _pairs([
+        (t("label_network"), data.get("handle") or "-"),
+        (t("label_name"), data.get("name") or "-"),
+        (t("label_range"), f"{data.get('startAddress', '?')} - {data.get('endAddress', '?')}"),
+        (t("label_country"), data.get("country") or "-"),
+        (t("label_type"), data.get("type") or "-"),
+        (t("label_org"), org or "-"),
+    ])
 

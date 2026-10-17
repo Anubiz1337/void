@@ -7,7 +7,7 @@
   ╚═══╝   ╚═════╝ ╚═╝╚═════╝
 ```
 
-# VOID-Tools (v0.9)
+# VOID-Tools (v1.0)
 
 VOID is a terminal multi-tool dedicated to OSINT and Roblox. White ASCII menu,
 rainbow github links, local databases and an English / Russian interface.
@@ -33,17 +33,18 @@ following the terms of service of the sites it queries.
 ```
                 github.com/anubiz1337
 
- [I] Info   [O] Osint   [W] Web   [R] Roblox   [U] Utilities     [N] Next
+    [I] Info  [O] Osint  [W] Web  [R] Roblox  [F] Fun  [U] Utils    [N] Next
 
-                    --------| Roblox |--------
+   ────────┤ Roblox ├────────
 
-  [01] User Lookup        [08] Group Info
-  [02] User by ID         [09] User Games
-  [03] Avatar URL         [10] Game Search
-  [04] Friends List       [11] Join Player
-  [05] Groups List        [12] Join Game
-  [06] Game Info          [13] API Status
-  [07] Game Servers
+   [01] User Lookup              [09] Group Info
+   [02] User by ID               [10] Group Members
+   [03] Avatar URL               [11] User Games
+   [04] Friends List             [12] Game Search
+   [05] Groups List              [13] Join Player
+   [06] Game Info                [14] Join Game
+   [07] Game Servers             [15] API Status
+   [08] Game Passes
 
   Command:
   by anubiz1337  ·  github.com/anubiz1337/void
@@ -133,7 +134,7 @@ Menu:
   lang / l   : switch interface language (EN / RU)
   n / next   : next section
   q / quit   : exit
-  sections   : i = Info / o = Osint / w = Web / r = Roblox / u = Utilities
+  sections   : i = Info / o = Osint / w = Web / r = Roblox / f = Fun / u = Utils
 
 Osint:
   [01] IP Lookup        : IP data + proxy / hosting / mobile flags (ip-api.com).
@@ -148,6 +149,7 @@ Osint:
   [10] SSL Certificate  : TLS certificate info (issuer, dates, SANs).
   [11] Wayback Machine  : first and latest snapshots of a site (archive.org).
   [12] Email Security   : SPF and DMARC records (Cloudflare DoH).
+  [13] IP Whois         : network registration data of an IP (RDAP).
 
 Web:
   [01] URL Headers      : response headers of a website.
@@ -158,6 +160,7 @@ Web:
   [06] Open Roblox Site : open roblox.com in the browser.
   [07] Robots.txt       : rules from the robots.txt of a site.
   [08] Site Info        : title / description / Open Graph meta tags.
+  [09] Security Headers : HSTS / CSP / X-Frame-Options check with a score.
 
 Roblox:
   [01] User Lookup      : username -> public profile data.
@@ -165,16 +168,26 @@ Roblox:
   [03] Avatar URL       : avatar headshot URL.
   [04] Friends List     : public friends list.
   [05] Groups List      : groups and roles.
-  [06] Game Info        : game data by place id (+ icon url).
+  [06] Game Info        : game data by place id (+ icon url, votes, rating).
   [07] Game Servers     : public servers of a game.
-  [08] Group Info       : group data by id or name search.
-  [09] User Games       : games a user created (visits + place id).
-  [10] Game Search      : find games by name, show info and join.
-  [11] Join Player      : enter a username to find the game a player is in and
+  [08] Game Passes      : game passes of a game with prices.
+  [09] Group Info       : group data by id or name search.
+  [10] Group Members    : public member list of a group (role + user id).
+  [11] User Games       : games a user created (visits + place id).
+  [12] Game Search      : find games by name, show info and join.
+  [13] Join Player      : enter a username to find the game a player is in and
                           join it, or enter a place id to search the game's
                           public servers and join a specific one.
-  [12] Join Game        : launch Roblox into a place.
-  [13] API Status       : check Roblox API availability.
+  [14] Join Game        : launch Roblox into a place.
+  [15] API Status       : check Roblox API availability.
+
+Fun:
+  [01] Vaporwave Text : convert text to ｖａｐｏｒｗａｖｅ full-width style.
+  [02] Leet Speak     : convert text to l33t speak.
+  [03] Upside Down    : ʇxǝʇ uʍop ǝpᴉsdn.
+  [04] Hacker ID      : random "hacker" nickname generator.
+  [05] Coin Flip      : flip a coin with a spin animation.
+  [06] Random Game    : pick a random Roblox game and optionally join it.
 
 Utilities:
   [01] System Info        : OS / Python information.
@@ -202,6 +215,7 @@ They are downloaded automatically on first use into `data/` (not tracked by git)
 - `functions/roblox.py` - Roblox API functions
 - `functions/osint.py` - OSINT functions
 - `functions/web.py` - web functions
+- `functions/fun.py` - fun functions (text styles, coin, random game)
 - `functions/utilities.py` - utilities
 - `functions/database.py` - local database manager
 
@@ -210,4 +224,4 @@ They are downloaded automatically on first use into `data/` (not tracked by git)
 - Developed by: **anubiz1337**
 - GitHub: [github.com/anubiz1337](https://github.com/anubiz1337)
 - License: **MIT License**
-- Version: **v0.9**
+- Version: **v1.0**

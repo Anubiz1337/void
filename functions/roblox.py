@@ -10,7 +10,7 @@ import ui
 from i18n import t
 
 TIMEOUT = 15
-USER_AGENT = "VOID-Tools/0.9 (by anubiz1337)"
+USER_AGENT = "VOID-Tools/1.0 (by anubiz1337)"
 
 
 def _request(url, method="GET", payload=None):
@@ -201,6 +201,14 @@ def _game_icon(universe_id):
     return thumb.get("imageUrl") if thumb else None
 
 
+def _game_votes(universe_id):
+    """Up / down votes of a game."""
+    status, data = _request(f"https://games.roblox.com/v1/games/votes?universeIds={universe_id}")
+    if status == 200 and isinstance(data, dict) and data.get("data"):
+        return data["data"][0]
+    return None
+
+
 def game_info():
     place_id = _resolve_place_id()
     if place_id is None:
@@ -214,15 +222,26 @@ def game_info():
     if not game:
         print(ui.red("   " + t("game_failed")))
         return
-    print()
-    _pairs([
+    rows = [
         (t("label_game_name"), game.get("name")),
         (t("label_creator"), (game.get("creator") or {}).get("name")),
         (t("label_playing"), game.get("playing")),
         (t("label_visits"), game.get("visits")),
         (t("label_favorites"), game.get("favoritedCount")),
         (t("label_max_players"), game.get("maxPlayers")),
-    ])
+    ]
+    votes = _game_votes(universe_id)
+    if votes:
+        up = votes.get("upVotes") or 0
+        down = votes.get("downVotes") or 0
+        total = up + down
+        rows.extend([
+            (t("label_up"), f"{up:,}"),
+            (t("label_down"), f"{down:,}"),
+            (t("label_rating"), f"{up * 100 // total}%" if total else "-"),
+        ])
+    print()
+    _pairs(rows)
     icon = _game_icon(universe_id)
     if icon:
         print(ui.gray("   " + t("label_icon")) + " " + ui.light(icon))
@@ -242,6 +261,42 @@ def game_servers():
             f"   · {server.get('id')}  {t('servers_playing')} "
             f"{server.get('playing')}/{server.get('maxPlayers')}  ping: {server.get('ping')}"
         ))
+
+
+def game_passes():
+    """Game passes of a game with prices."""
+    place_id = _resolve_place_id()
+    if place_id is None:
+        return
+    universe_id = place_to_universe(place_id)
+    if universe_id is None:
+        print(ui.red("   " + t("game_unresolved")))
+        return
+    status, data = _request(
+        f"https://apis.roblox.com/game-passes/v1/universes/{universe_id}/game-passes?limit=10"
+    )
+    passes = data.get("gamePasses") if isinstance(data, dict) else None
+    if status != 200 or passes is None:
+        print(ui.red("   " + t("fetch_failed")))
+        return
+    if not passes:
+        print(ui.gray("   " + t("passes_none")))
+        return
+    print(ui.gray("   " + t("passes_count").format(len(passes))))
+    for item in passes[:8]:
+        info_status, info = _request(
+            "https://apis.roblox.com/game-passes/v1/game-passes/"
+            f"{item.get('id')}/product-info"
+        )
+        price = (info or {}).get("PriceInRobux") if info_status == 200 else None
+        if price is not None:
+            price_text = f"R$ {price}"
+        elif item.get("isForSale") is False:
+            price_text = t("passes_off")
+        else:
+            price_text = "-"
+        name = str(item.get("displayName") or item.get("name") or "-")[:34]
+        print(ui.light(f"   · {name}  ") + ui.gray(price_text))
 
 
 def fetch_presence(user_id):
@@ -377,33 +432,38 @@ def join_game():
     _open_place(place_id)
 
 
-def group_info():
-    """Group data by id or by name search."""
+def _resolve_group_id():
+    """Group id from a number or from a name search."""
     raw = _ask(t("prompt_group"))
     if not raw:
         print(ui.gray("   " + t("cancelled")))
-        return
-    group_id = None
+        return None
     if raw.isdigit():
-        group_id = int(raw)
-    else:
-        status, data = _request(
-            "https://groups.roblox.com/v1/groups/search"
-            f"?keyword={urllib.parse.quote(raw)}&limit=10"
-        )
-        results = data.get("data") if isinstance(data, dict) else None
-        if status != 200 or not results:
-            print(ui.gray("   " + t("no_results")))
-            return
-        print()
-        for index, group in enumerate(results, 1):
-            line = f"{group.get('name')}  ({t('label_members').lower()}: {group.get('memberCount')})"
-            print(ui.gray(f"   {index:02d}  ") + ui.light(line[:60]))
-        pick = _ask(t("prompt_pick_number"))
-        if not pick.isdigit() or not 1 <= int(pick) <= len(results):
-            print(ui.gray("   " + t("cancelled")))
-            return
-        group_id = results[int(pick) - 1].get("id")
+        return int(raw)
+    status, data = _request(
+        "https://groups.roblox.com/v1/groups/search"
+        f"?keyword={urllib.parse.quote(raw)}&limit=10"
+    )
+    results = data.get("data") if isinstance(data, dict) else None
+    if status != 200 or not results:
+        print(ui.gray("   " + t("no_results")))
+        return None
+    print()
+    for index, group in enumerate(results, 1):
+        line = f"{group.get('name')}  ({t('label_members').lower()}: {group.get('memberCount')})"
+        print(ui.gray(f"   {index:02d}  ") + ui.light(line[:60]))
+    pick = _ask(t("prompt_pick_number"))
+    if not pick.isdigit() or not 1 <= int(pick) <= len(results):
+        print(ui.gray("   " + t("cancelled")))
+        return None
+    return results[int(pick) - 1].get("id")
+
+
+def group_info():
+    """Group data by id or by name search."""
+    group_id = _resolve_group_id()
+    if group_id is None:
+        return
     status, data = _request(f"https://groups.roblox.com/v1/groups/{group_id}")
     if status != 200 or not isinstance(data, dict):
         print(ui.red("   " + t("group_failed")))
@@ -421,6 +481,31 @@ def group_info():
     description = (data.get("description") or "").strip()
     if description:
         print(ui.gray("   " + t("label_description")) + " " + ui.light(description[:120]))
+
+
+def group_members():
+    """Public member list of a group."""
+    group_id = _resolve_group_id()
+    if group_id is None:
+        return
+    status, data = _request(
+        f"https://groups.roblox.com/v1/groups/{group_id}/users?limit=10&sortOrder=Asc"
+    )
+    members = data.get("data") if isinstance(data, dict) else None
+    if status != 200 or members is None:
+        print(ui.red("   " + t("fetch_failed")))
+        return
+    if not members:
+        print(ui.gray("   " + t("no_results")))
+        return
+    print(ui.gray("   " + t("members_count").format(len(members))))
+    for item in members[:10]:
+        user = item.get("user") or {}
+        role = (item.get("role") or {}).get("name") or "-"
+        print(
+            ui.light(f"   · {user.get('username')}  ")
+            + ui.gray(f"id {user.get('userId')}  {role}")
+        )
 
 
 def user_games():
