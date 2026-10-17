@@ -8,7 +8,7 @@ import ui
 from i18n import t
 
 TIMEOUT = 15
-USER_AGENT = "VOID-Tools/0.4 (by anubiz1337)"
+USER_AGENT = "VOID-Tools/0.5 (by anubiz1337)"
 
 
 def _request(url, method="GET", payload=None):
@@ -236,16 +236,71 @@ def game_servers():
         ))
 
 
-def join_game():
-    place_id = _resolve_place_id()
-    if place_id is None:
-        return
+def fetch_presence(user_id):
+    status, data = _request(
+        "https://presence.roblox.com/v1/presence/users",
+        method="POST",
+        payload={"userIds": [user_id]},
+    )
+    if status == 200 and isinstance(data, dict) and data.get("userPresences"):
+        return data["userPresences"][0]
+    return None
+
+
+def _open_place(place_id):
     link = f"roblox://experiences/start?placeId={place_id}"
     print(ui.gray("   " + t("join_opening").format(link)))
     if os.name == "nt":
         os.startfile(link)
     else:
         print(ui.red("   " + t("join_windows")))
+
+
+def join_player():
+    """Find the game a player is currently in and join it."""
+    raw = _ask(t("prompt_username_or_id"))
+    if not raw:
+        print(ui.gray("   " + t("cancelled")))
+        return
+    user_id = int(raw) if raw.isdigit() else username_to_id(raw)
+    if user_id is None:
+        print(ui.red("   " + t("user_not_found")))
+        return
+
+    place_id = None
+    presence = fetch_presence(user_id)
+    if presence is None:
+        print(ui.gray("   " + t("presence_failed")))
+    elif presence.get("userPresenceType") == 2:
+        place_id = presence.get("placeId") or presence.get("rootPlaceId")
+        location = presence.get("lastLocation") or "-"
+        print()
+        print(ui.gray("   " + t("join_playing").format(location)))
+        print(ui.gray("   " + t("join_place").format(place_id)))
+        if _ask(t("join_confirm")).lower() not in ("y", "yes", "1"):
+            print(ui.gray("   " + t("cancelled")))
+            return
+    else:
+        location = presence.get("lastLocation")
+        print(ui.gray("   " + t("join_not_in_game")))
+        if location:
+            print(ui.gray("   " + t("join_last_seen").format(location)))
+
+    if place_id is None:
+        raw_place = _ask(t("join_manual_prompt"))
+        if not raw_place.isdigit():
+            print(ui.gray("   " + t("cancelled")))
+            return
+        place_id = int(raw_place)
+
+    _open_place(place_id)
+
+
+def join_game():
+    place_id = _resolve_place_id()
+    if place_id is None:
+        return
+    _open_place(place_id)
 
 
 def api_status():

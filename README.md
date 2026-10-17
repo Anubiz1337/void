@@ -7,7 +7,7 @@
   ╚═══╝   ╚═════╝ ╚═╝╚═════╝
 ```
 
-# VOID-Tools (v0.4)
+# VOID-Tools (v0.5)
 
 VOID is a terminal multi-tool dedicated to OSINT and Roblox. White ASCII menu,
 rainbow github links, local databases and an English / Russian interface.
@@ -39,9 +39,9 @@ following the terms of service of the sites it queries.
 
   [01] User Lookup        [06] Game Info
   [02] User by ID         [07] Game Servers
-  [03] Avatar URL         [08] Join Game
-  [04] Friends List       [09] API Status
-  [05] Groups List
+  [03] Avatar URL         [08] Join Player
+  [04] Friends List       [09] Join Game
+  [05] Groups List        [10] API Status
 
   Command:
   by anubiz1337  ·  github.com/anubiz1337/void
@@ -150,8 +150,10 @@ Roblox:
   [05] Groups List      : groups and roles.
   [06] Game Info        : game data by place id.
   [07] Game Servers     : public servers of a game.
-  [08] Join Game        : launch Roblox into a place.
-  [09] API Status       : check Roblox API availability.
+  [08] Join Player      : find the game a player is in and join it (username only,
+                          or username + place id to join directly).
+  [09] Join Game        : launch Roblox into a place.
+  [10] API Status       : check Roblox API availability.
 
 Utilities:
   [01] System Info        : OS / Python information.
@@ -187,6 +189,5 @@ They are downloaded automatically on first use into `data/` (not tracked by git)
 
 - Developed by: **anubiz1337**
 - GitHub: [github.com/anubiz1337](https://github.com/anubiz1337)
-- Interface inspired by **RedTiger-Tools** ([github.com/loxy0devlp/RedTiger-Tools](https://github.com/loxy0devlp/RedTiger-Tools))
 - License: **MIT License**
-- Version: **v0.4**
+- Version: **v0.5**

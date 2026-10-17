@@ -23,7 +23,7 @@ SHERLOCK_URLS = [
 IPDENY_URL = "https://www.ipdeny.com/ipblocks/data/aggregated/{cc}-aggregated.zone"
 
 TIMEOUT = 60
-USER_AGENT = "VOID-Tools/0.4 (by anubiz1337)"
+USER_AGENT = "VOID-Tools/0.5 (by anubiz1337)"
 
 
 def _download(url: str) -> str:

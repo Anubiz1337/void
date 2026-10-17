@@ -83,6 +83,7 @@ SECTIONS = [
             ("item_r_groups", roblox.groups_list),
             ("item_r_game", roblox.game_info),
             ("item_r_servers", roblox.game_servers),
+            ("item_r_join_player", roblox.join_player),
             ("item_r_join", roblox.join_game),
             ("item_r_status", roblox.api_status),
         ],
