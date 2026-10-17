@@ -15,7 +15,7 @@ SHOW_CURSOR = "\033[?25h"
 # palette (menu is white, color only on github links)
 WHITE = (255, 255, 255)
 SOFT = (235, 235, 235)
-GRAY = (140, 140, 140)
+GRAY = (168, 168, 168)
 DARK = (16, 16, 16)
 RED = (229, 57, 53)  # errors only
 
@@ -76,11 +76,17 @@ def red(text, dim=1.0):
     return fg(RED, text, dim)
 
 
-def badge(text, glow=1.0):
-    """Active tab: dark text on a white plate whose brightness can animate."""
-    level = int(110 + 145 * max(0.0, min(1.0, glow)))
-    dr, dg, db = DARK
-    return f"\033[48;2;{level};{level};{level}m\033[38;2;{dr};{dg};{db}m\033[1m{text}\033[0m"
+def active(text, ts, lo=0.8, hi=1.0, speed=3.0, wavelength=18.0):
+    """Selected tab: bold underlined white with a soft gleam."""
+    k = 2 * math.pi / wavelength
+    out = []
+    for x, ch in enumerate(text):
+        if ch == " ":
+            out.append(ch)
+            continue
+        wave = 0.5 + 0.5 * math.sin(x * k - ts * speed)
+        out.append("\033[1m\033[4m" + fg(WHITE, ch, lo + (hi - lo) * wave))
+    return "".join(out)
 
 
 def hsv_to_rgb(h, s, v):

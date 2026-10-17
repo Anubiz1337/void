@@ -14,7 +14,7 @@ from i18n import t
 from . import database
 
 TIMEOUT = 15
-USER_AGENT = "VOID-Tools/0.6 (by anubiz1337)"
+USER_AGENT = "VOID-Tools/0.7 (by anubiz1337)"
 
 DORK_PATTERNS = [
     "site:{}",
@@ -31,7 +31,7 @@ ENGINES = {
 }
 
 
-def _request(url, method="GET", payload=None):
+def _request(url, method="GET", payload=None, timeout=TIMEOUT):
     data = None
     headers = {"User-Agent": USER_AGENT, "Accept": "*/*"}
     if payload is not None:
@@ -39,7 +39,7 @@ def _request(url, method="GET", payload=None):
         headers["Content-Type"] = "application/json"
     request = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
             body = response.read().decode("utf-8", "replace")
             try:
                 return response.status, json.loads(body)
@@ -73,7 +73,7 @@ def _clean_domain(raw):
 
 def ip_lookup():
     ip = _ask(t("prompt_ip"))
-    fields = "status,message,country,regionName,city,lat,lon,timezone,isp,org,as,query"
+    fields = "status,message,country,regionName,city,lat,lon,timezone,isp,org,as,query,proxy,hosting,mobile"
     status, data = _request(f"http://ip-api.com/json/{ip}?fields={fields}")
     if status != 200 or not isinstance(data, dict) or data.get("status") != "success":
         reason = data.get("message") if isinstance(data, dict) else status
@@ -90,6 +90,9 @@ def ip_lookup():
         (t("label_isp"), data.get("isp")),
         (t("label_org"), data.get("org")),
         (t("label_as"), data.get("as")),
+        (t("label_proxy"), t("yes") if data.get("proxy") else t("no")),
+        (t("label_hosting"), t("yes") if data.get("hosting") else t("no")),
+        (t("label_mobile"), t("yes") if data.get("mobile") else t("no")),
     ])
 
 
@@ -149,6 +152,60 @@ def dns_lookup():
             print(ui.gray("   PTR:  ") + ui.light(name))
         except (socket.herror, socket.gaierror):
             print(ui.red("   " + t("dns_ptr_missing")))
+
+
+def _crtsh_subdomains(domain):
+    status, data = _request(f"https://crt.sh/?q=%25.{domain}&output=json", timeout=45)
+    if status != 200 or not isinstance(data, list):
+        return None
+    names = set()
+    for entry in data:
+        for name in str(entry.get("name_value", "")).splitlines():
+            name = name.strip().lower().lstrip("*.").rstrip(".")
+            if (
+                name
+                and name.endswith("." + domain)
+                and " " not in name
+                and "@" not in name
+            ):
+                names.add(name)
+    return names
+
+
+def _hostsearch_subdomains(domain):
+    status, data = _request(f"https://api.hackertarget.com/hostsearch/?q={domain}", timeout=30)
+    if status != 200 or not isinstance(data, str):
+        return None
+    names = set()
+    for line in data.splitlines():
+        name = line.split(",")[0].strip().lower()
+        if name and name.endswith("." + domain) and " " not in name:
+            names.add(name)
+    return names
+
+
+def subdomains():
+    """Subdomain list from certificate transparency (crt.sh + hostsearch fallback)."""
+    domain = _clean_domain(_ask(t("prompt_domain")))
+    if not domain:
+        print(ui.gray("   " + t("cancelled")))
+        return
+    names = _crtsh_subdomains(domain)
+    if names is None:
+        names = _crtsh_subdomains(domain)  # crt.sh throws 502 sometimes
+    if names is None:
+        names = _hostsearch_subdomains(domain)
+    if names is None:
+        print(ui.red("   " + t("subs_failed")))
+        return
+    if not names:
+        print(ui.gray("   " + t("subs_none")))
+        return
+    print(ui.gray("   " + t("subs_count").format(len(names))))
+    for name in sorted(names)[:50]:
+        print(ui.light(f"   · {name}"))
+    if len(names) > 50:
+        print(ui.gray("   " + t("subs_truncated")))
 
 
 def _mx_records(domain):
@@ -259,6 +316,35 @@ def username_tracker():
         print(ui.light(f"   {t('tracker_found'):<7} ") + ui.gray(roblox_line))
     total_found = len(found) + (1 if roblox_line else 0)
     print(ui.gray("   " + t("tracker_summary").format(total_found, len(checks) + 1)))
+
+
+def github_lookup():
+    """Public GitHub profile data by username."""
+    username = _ask(t("prompt_username"))
+    if not username:
+        print(ui.gray("   " + t("cancelled")))
+        return
+    status, data = _request(f"https://api.github.com/users/{username}")
+    if status == 404:
+        print(ui.red("   " + t("user_not_found")))
+        return
+    if status != 200 or not isinstance(data, dict):
+        print(ui.red("   " + t("fetch_failed")))
+        return
+    print()
+    rows = [
+        (t("label_username"), data.get("login")),
+        (t("label_name"), data.get("name")),
+        (t("label_bio"), data.get("bio")),
+        (t("label_company"), data.get("company")),
+        (t("label_location"), data.get("location")),
+        (t("label_blog"), data.get("blog")),
+        (t("label_twitter"), data.get("twitter_username")),
+        (t("label_repos"), data.get("public_repos")),
+        (t("label_followers"), data.get("followers")),
+        (t("label_created"), (data.get("created_at") or "")[:10]),
+    ]
+    _pairs([(label, value) for label, value in rows if value not in (None, "")])
 
 
 def url_headers():

@@ -8,7 +8,7 @@ import ui
 from i18n import t
 
 TIMEOUT = 15
-USER_AGENT = "VOID-Tools/0.6 (by anubiz1337)"
+USER_AGENT = "VOID-Tools/0.7 (by anubiz1337)"
 
 
 def _request(url, method="GET", payload=None):

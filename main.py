@@ -17,7 +17,7 @@ FPS = 20
 
 GITHUB_USER = "anubiz1337"
 REPO_URL = f"github.com/{GITHUB_USER}/void"
-VERSION = "v0.6"
+VERSION = "v0.7"
 
 DRIPS = ui.make_drip_columns()
 
@@ -67,8 +67,10 @@ SECTIONS = [
             ("item_ip_lookup", osint.ip_lookup),
             ("item_domain", osint.domain_info),
             ("item_dns", osint.dns_lookup),
+            ("item_subs", osint.subdomains),
             ("item_email_mx", osint.email_mx),
             ("item_username", osint.username_tracker),
+            ("item_github", osint.github_lookup),
             ("item_url_headers", osint.url_headers),
             ("item_dorks", osint.dork_builder),
         ],
@@ -113,20 +115,27 @@ def item_label(key):
     return t(key)
 
 
-def _item_line(number, key, elapsed, index, width=30):
-    """Menu entry with a staggered fade-in after a section switch."""
+def _item_line(number, key, ts, elapsed, index, width=30):
+    """Menu entry: gentle white-gray gleam + staggered fade-in after a switch."""
     label = item_label(key)
     plain = f"[{number:02d}] {label}"
     progress = max(0.0, min(1.0, (elapsed - index * 0.045) / 0.28))
     alpha = 0.15 + 0.85 * (1.0 - (1.0 - progress) ** 2)
-    colored = ui.gray(f"[{number:02d}]", alpha) + " " + ui.light(label, alpha)
+    k = 2 * math.pi / 64.0
+    chars = []
+    for x, ch in enumerate(label):
+        if ch == " ":
+            chars.append(ch)
+            continue
+        wave = 0.5 + 0.5 * math.sin(x * k - ts * 1.3)
+        chars.append(ui.fg(ui.SOFT, ch, (0.78 + 0.22 * wave) * alpha))
+    colored = ui.gray(f"[{number:02d}]", alpha) + " " + "".join(chars)
     return colored + " " * max(2, width - len(plain))
 
 
 def build_screen(ts, section_idx, buffer, message, section_ts=0.0):
     phase = (ts * 100.0) % 360
     elapsed = max(0.0, ts - section_ts)
-    bloom = 1.0 - math.exp(-6.0 * elapsed)
     lines = [""]
 
     for art in ui.TITLE:
@@ -148,9 +157,9 @@ def build_screen(ts, section_idx, buffer, message, section_ts=0.0):
         label = f"[{section['key'].upper()}] {t(section['title'])}"
         block = f" {label} "
         if index == section_idx:
-            parts.append(ui.badge(block, 0.25 + 0.75 * bloom))
+            parts.append(" " + ui.active(label, ts) + " ")
         else:
-            parts.append(" " + ui.light(label) + " ")
+            parts.append(" " + ui.light(label, 0.6) + " ")
         visible += len(block)
         if index != len(SECTIONS) - 1:
             parts.append(" ")
@@ -169,10 +178,10 @@ def build_screen(ts, section_idx, buffer, message, section_ts=0.0):
     items = SECTIONS[section_idx]["items"]
     half = (len(items) + 1) // 2
     for i in range(half):
-        row = "   " + _item_line(i + 1, items[i][0], elapsed, i)
+        row = "   " + _item_line(i + 1, items[i][0], ts, elapsed, i)
         other = i + half
         if other < len(items):
-            row += _item_line(other + 1, items[other][0], elapsed, other)
+            row += _item_line(other + 1, items[other][0], ts, elapsed, other)
         lines.append(row)
 
     cursor_dim = 0.3 + 0.7 * (0.5 + 0.5 * math.sin(ts * 4.2))

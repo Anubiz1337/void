@@ -7,7 +7,7 @@
   ╚═══╝   ╚═════╝ ╚═╝╚═════╝
 ```
 
-# VOID-Tools (v0.6)
+# VOID-Tools (v0.7)
 
 VOID is a terminal multi-tool dedicated to OSINT and Roblox. White ASCII menu,
 rainbow github links, local databases and an English / Russian interface.
@@ -134,13 +134,15 @@ Menu:
   sections   : i = Info / o = Osint / r = Roblox / u = Utilities
 
 Osint:
-  [01] IP Lookup        : IP data via the ip-api.com API.
+  [01] IP Lookup        : IP data + proxy / hosting / mobile flags (ip-api.com).
   [02] Domain Info      : WHOIS / RDAP domain data via rdap.org.
   [03] DNS Lookup       : A / AAAA records + reverse DNS (PTR).
-  [04] Email MX         : MX records of an email / domain via Cloudflare DoH.
-  [05] Username Tracker : track a username across 40+ sites (Sherlock database).
-  [06] URL Headers      : response headers of a website.
-  [07] Dork Builder     : search query builder (Google / Bing / DuckDuckGo).
+  [04] Subdomains       : subdomain list from certificate transparency (crt.sh).
+  [05] Email MX         : MX records of an email / domain via Cloudflare DoH.
+  [06] Username Tracker : track a username across 40+ sites (Sherlock database).
+  [07] GitHub Lookup    : public GitHub profile data by username.
+  [08] URL Headers      : response headers of a website.
+  [09] Dork Builder     : search query builder (Google / Bing / DuckDuckGo).
 
 Roblox:
   [01] User Lookup      : username -> public profile data.
@@ -191,4 +193,4 @@ They are downloaded automatically on first use into `data/` (not tracked by git)
 - Developed by: **anubiz1337**
 - GitHub: [github.com/anubiz1337](https://github.com/anubiz1337)
 - License: **MIT License**
-- Version: **v0.6**
+- Version: **v0.7**
