@@ -7,12 +7,15 @@
 """
 from __future__ import annotations
 
+import concurrent.futures
 import json
+import secrets
 import socket
 import urllib.error
 import urllib.request
 
 import ui
+from . import database
 
 TIMEOUT = 15
 USER_AGENT = "VOID-Tools/0.1 (by anubiz1337)"
@@ -147,11 +150,11 @@ def dns_lookup():
             print(ui.red("   PTR не найден."))
 
 
-def _check_url(url: str):
+def _check_url(url: str, timeout: float = TIMEOUT):
     """HTTP-статус страницы (200/404/…), None при ошибке сети."""
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
             return response.status
     except urllib.error.HTTPError as error:
         return error.code
@@ -160,24 +163,55 @@ def _check_url(url: str):
 
 
 def username_tracker():
-    """[04] Поиск username на популярных сайтах."""
+    """[04] Поиск username по базе сайтов Sherlock (+ Roblox API)."""
     username = _ask("Username: ")
     if not username:
         print(ui.gray("   Отменено."))
         return
-    checks = [
-        ("GitHub", f"https://github.com/{username}"),
-        ("Reddit", f"https://www.reddit.com/user/{username}"),
-        ("Twitch", f"https://www.twitch.tv/{username}"),
+
+    # сайты берём из локальной базы Sherlock (~400 сайтов)
+    pool = []
+    try:
+        sites = database.sherlock_sites()
+        for name, info in sites.items():
+            if not isinstance(info, dict) or info.get("isNSFW"):
+                continue
+            if info.get("errorType") != "status_code":
+                continue
+            pattern = info.get("urlProbe") or info.get("url") or ""
+            if "{}" not in pattern:
+                continue
+            pool.append((name, pattern.replace("{}", username), info.get("errorMsg")))
+    except Exception as error:  # noqa: BLE001
+        print(ui.red(f"   База Sherlock недоступна: {error}"))
+
+    # базовые сайты проверяем всегда + случайная выборка из базы
+    base = [
+        ("GitHub", f"https://github.com/{username}", 404),
+        ("Reddit", f"https://www.reddit.com/user/{username}", 404),
+        ("Twitch", f"https://www.twitch.tv/{username}", 404),
     ]
-    for name, url in checks:
-        code = _check_url(url)
-        if code == 200:
-            print(ui.light("   НАЙДЕН  ") + ui.gray(f"{name:<8} {url}"))
-        elif code == 404:
-            print(ui.gray(f"   нет     {name:<8}"))
-        else:
-            print(ui.gray(f"   ? ({code})  {name:<8}"))
+    sample = []
+    remaining = list(pool)
+    while remaining and len(sample) < 40:
+        sample.append(remaining.pop(secrets.randbelow(len(remaining))))
+    checks = base + sample
+    print(ui.gray(f"   Проверяю {len(checks)} сайтов…"))
+
+    found = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
+        futures = {
+            executor.submit(_check_url, url, 8): (name, url, error)
+            for name, url, error in checks
+        }
+        for future in concurrent.futures.as_completed(futures):
+            name, url, error = futures[future]
+            code = future.result()
+            if code is None:
+                continue
+            errors = error if isinstance(error, list) else [error]
+            if code == 200 and code not in errors:
+                found.append((name, url))
 
     # Roblox — через API, точный результат
     status, data = _request(
@@ -185,11 +219,18 @@ def username_tracker():
         method="POST",
         payload={"usernames": [username], "excludeBannedUsers": False},
     )
+    roblox_line = None
     if status == 200 and isinstance(data, dict) and data.get("data"):
         user = data["data"][0]
-        print(ui.light("   НАЙДЕН  ") + ui.gray(f"Roblox   id={user.get('id')}"))
-    else:
-        print(ui.gray("   нет     Roblox"))
+        roblox_line = f"Roblox         id={user.get('id')}"
+
+    print()
+    for name, url in sorted(found):
+        print(ui.light("   НАЙДЕН  ") + ui.gray(f"{name:<14} {url}"))
+    if roblox_line:
+        print(ui.light("   НАЙДЕН  ") + ui.gray(roblox_line))
+    total_found = len(found) + (1 if roblox_line else 0)
+    print(ui.gray(f"   Итог: найден на {total_found} из {len(checks) + 1} сайтов"))
 
 
 def url_headers():

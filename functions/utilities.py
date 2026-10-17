@@ -1,13 +1,14 @@
-"""Утилиты VOID: система, сеть, генераторы, хеши, base64.
+"""Утилиты VOID: система, сеть, генераторы, хеши, base64, базы данных.
 
 Каждая функция — пример того, как добавлять свои пункты в меню.
+Без модуля random: только криптостойкий secrets + реальные базы данных.
 """
 from __future__ import annotations
 
 import base64
 import hashlib
+import ipaddress
 import platform
-import random
 import secrets
 import string
 import sys
@@ -16,6 +17,7 @@ import urllib.request
 import webbrowser
 
 import ui
+from . import database
 
 
 def system_info():
@@ -31,7 +33,7 @@ def ping_roblox():
     try:
         request = urllib.request.Request(
             "https://www.roblox.com",
-            headers={"User-Agent": "VOID-Tools/0.1 (by anubiz1337)"},
+            headers={"User-Agent": "VOID-Tools/0.3 (by anubiz1337)"},
         )
         with urllib.request.urlopen(request, timeout=15) as response:
             response.read(1)
@@ -48,7 +50,7 @@ def open_roblox_site():
 
 
 def password_generator():
-    """[04] Генератор пароля."""
+    """[04] Генератор пароля (криптостойкий, secrets)."""
     raw = input(ui.light("   Длина (Enter = 16): ")).strip()
     length = int(raw) if raw.isdigit() and int(raw) > 0 else 16
 
@@ -91,15 +93,60 @@ def base64_tool():
 
 
 def ip_generator():
-    """[07] Генератор случайных IP-адресов."""
+    """[07] IP из реальных диапазонов стран (база ipdeny.com)."""
+    country = input(ui.light("   Код страны (ua/us/de…, Enter = ua): ")).strip().lower() or "ua"
+    try:
+        ranges = database.ip_ranges(country)
+    except Exception as error:  # noqa: BLE001
+        print(ui.red(f"   Не удалось получить базу: {error}"))
+        return
+
+    networks = []
+    for cidr in ranges:
+        try:
+            network = ipaddress.ip_network(cidr, strict=False)
+        except ValueError:
+            continue
+        if network.num_addresses > 2:
+            networks.append(network)
+    if not networks:
+        print(ui.red("   База пустая."))
+        return
+
+    total = sum(network.num_addresses for network in networks)
+    print(ui.gray(f"   Страна {country.upper()}: {len(networks)} диапазонов, {total:,} адресов"))
     for _ in range(10):
-        ip = ".".join(str(random.randint(1, 254)) for _ in range(4))
-        print(ui.light(f"   {ip}"))
+        point = secrets.randbelow(total)
+        chosen = networks[-1]
+        for network in networks:
+            if point < network.num_addresses:
+                chosen = network
+                break
+            point -= network.num_addresses
+        offset = 1 + secrets.randbelow(max(1, chosen.num_addresses - 2))
+        ip = chosen.network_address + offset
+        print(ui.light(f"   {ip}") + ui.gray(f"   {chosen}"))
+
+
+def update_databases():
+    """[08] Обновить локальные базы (sherlock + ipdeny)."""
+    print(ui.gray("   Обновляю базы…"))
+    try:
+        sites = database.sherlock_sites(force=True)
+        print(ui.light(f"   Sherlock:  {len(sites)} сайтов"))
+    except Exception as error:  # noqa: BLE001
+        print(ui.red(f"   Sherlock:  ошибка — {error}"))
+    for country in database.ip_available() or ["ua"]:
+        try:
+            ranges = database.ip_ranges(country, force=True)
+            print(ui.light(f"   {country}: {len(ranges)} диапазонов"))
+        except Exception as error:  # noqa: BLE001
+            print(ui.red(f"   {country}: ошибка — {error}"))
 
 
 def todo_stub():
-    """[08] Пустая заготовка — скопируй и впиши свою логику."""
+    """[09] Пустая заготовка — скопируй и впиши свою логику."""
     # TODO: здесь твой код.
-    # 1) напиши функцию в этом файле (или в functions/roblox.py / osint.py)
+    # 1) напиши функцию в этом файле (или functions/roblox.py / osint.py)
     # 2) подключи её в main.py -> SECTIONS
     print(ui.gray("   TODO: впиши свою функцию здесь."))

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import math
 import os
-import random
+import secrets
 import sys
 
 # ---------- управляющие последовательности ----------
@@ -125,7 +125,10 @@ def rainbow(text: str, phase: float, hue_step: float = 7.0, value: float = 1.0, 
 
 # ---------- «капли» под заголовком ----------
 def make_drip_columns(count: int = 9):
-    return sorted(random.sample(range(2, TITLE_WIDTH - 2), count))
+    cols = set()
+    while len(cols) < count:
+        cols.add(2 + secrets.randbelow(TITLE_WIDTH - 4))
+    return sorted(cols)
 
 
 def drip_rows(columns, t: float):

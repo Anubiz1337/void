@@ -8,3 +8,4 @@ env/
 .vscode/
 dist/
 build/
+data/

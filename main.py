@@ -30,7 +30,7 @@ DRIPS = ui.make_drip_columns()  # позиции «капель» под заг�
 # ---------- функции раздела Info ----------
 def info_about():
     print("   VOID — заготовка консольного меню (типа RedTiger).")
-    print("   Белое меню, радужный github, каркас функций под Roblox и OSINT.")
+    print("   Белое меню, радужный github, Roblox + OSINT + локальные базы данных.")
     print("   Свои функции добавляй в functions/ и подключай в SECTIONS (main.py).")
 
 
@@ -40,7 +40,7 @@ def info_author():
 
 
 def info_version():
-    print("   VOID v0.2")
+    print("   VOID v0.3")
     print(f"   Python {sys.version.split()[0]}")
 
 
@@ -98,6 +98,7 @@ SECTIONS = [
             ("Hash Text", utilities.hash_text),
             ("Base64 Enc/Dec", utilities.base64_tool),
             ("IP Generator", utilities.ip_generator),
+            ("Update Databases", utilities.update_databases),
             ("TODO Stub", utilities.todo_stub),
         ],
     },
